@@ -197,7 +197,7 @@ export class DatabaseService {
   static async getDailyData(): Promise<DailyData[]> {
     try {
       const deliveries = await this.getDeliveries();
-      const stores = await this.getStores();
+      // const stores = await this.getStores(); // Not used in this function
       
       // Group deliveries by date
       const deliveriesByDate = deliveries.reduce((acc, delivery) => {

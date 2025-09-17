@@ -81,15 +81,15 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose, onDataChange 
   };
 
   const clearAllData = () => {
-    if (confirm('Are you sure you want to clear all data? This cannot be undone!')) {
+    if (window.confirm('Are you sure you want to clear all data? This cannot be undone!')) {
       try {
         StorageManager.saveDailyData([]);
         StorageManager.saveStores([]);
         onDataChange();
-        alert('All data cleared successfully!');
+        window.alert('All data cleared successfully!');
       } catch (error) {
         console.error('Clear error:', error);
-        alert('Failed to clear data');
+        window.alert('Failed to clear data');
       }
     }
   };
@@ -111,13 +111,13 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose, onDataChange 
       
       // Copy to clipboard
       navigator.clipboard.writeText(url).then(() => {
-        alert('Share link copied to clipboard!');
+        window.alert('Share link copied to clipboard!');
       }).catch(() => {
-        alert('Share link generated! Copy it manually.');
+        window.alert('Share link generated! Copy it manually.');
       });
     } catch (error) {
       console.error('Share error:', error);
-      alert('Failed to generate share link');
+      window.alert('Failed to generate share link');
     }
   };
 
@@ -128,13 +128,13 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose, onDataChange 
         StorageManager.saveDailyData(sharedData.dailyData);
         StorageManager.saveStores(sharedData.stores);
         onDataChange();
-        alert('Shared data loaded successfully!');
+        window.alert('Shared data loaded successfully!');
       } else {
-        alert('No shared data found in URL');
+        window.alert('No shared data found in URL');
       }
     } catch (error) {
       console.error('Load shared data error:', error);
-      alert('Failed to load shared data');
+      window.alert('Failed to load shared data');
     }
   };
 
@@ -142,10 +142,10 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose, onDataChange 
     setIsSyncing(true);
     try {
       await HybridStorageManager.syncToDatabase();
-      alert('Data synced to database successfully!');
+      window.alert('Data synced to database successfully!');
     } catch (error) {
       console.error('Sync error:', error);
-      alert('Failed to sync data to database');
+      window.alert('Failed to sync data to database');
     } finally {
       setIsSyncing(false);
     }
@@ -155,10 +155,10 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose, onDataChange 
     setIsSyncing(true);
     try {
       await HybridStorageManager.reconnect();
-      alert('Database reconnected successfully!');
+      window.alert('Database reconnected successfully!');
     } catch (error) {
       console.error('Reconnect error:', error);
-      alert('Failed to reconnect to database');
+      window.alert('Failed to reconnect to database');
     } finally {
       setIsSyncing(false);
     }

@@ -4,7 +4,7 @@ import { X, Plus } from 'lucide-react';
 
 interface StoreFormProps {
   onSubmit: (delivery: Omit<Delivery, 'id'>) => void;
-  onAddStore: (store: Omit<Store, 'id'>) => Store;
+  onAddStore: (store: Omit<Store, 'id'>) => Promise<Store>;
   stores: Store[];
   onClose: () => void;
 }
@@ -65,15 +65,15 @@ export const StoreForm: React.FC<StoreFormProps> = ({
     onClose();
   };
 
-  const handleAddStore = (e: React.FormEvent) => {
+  const handleAddStore = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!newStoreName.trim()) {
-      alert('Please enter store name');
+      window.alert('Please enter store name');
       return;
     }
 
-    const newStore = onAddStore({
+    const newStore = await onAddStore({
       name: newStoreName.trim(),
       address: newStoreAddress.trim() || undefined,
       contact: newStoreContact.trim() || undefined

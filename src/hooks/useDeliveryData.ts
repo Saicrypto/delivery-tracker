@@ -11,7 +11,7 @@ export const useDeliveryData = () => {
   const [currentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [loading, setLoading] = useState(true);
-  const [isOnline, setIsOnline] = useState(false);
+  const [, setIsOnline] = useState(false);
 
   // Load initial data
   useEffect(() => {
