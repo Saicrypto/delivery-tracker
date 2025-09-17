@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Download, Upload, Trash2 } from 'lucide-react';
+import { Download, Upload, Trash2, Share2, Copy } from 'lucide-react';
 import { StorageManager } from '../utils/storage';
+import { URLDataSharing } from '../utils/cloudStorage';
 
 interface DataManagerProps {
   onClose: () => void;
@@ -10,6 +11,7 @@ interface DataManagerProps {
 export const DataManager: React.FC<DataManagerProps> = ({ onClose, onDataChange }) => {
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
+  const [shareUrl, setShareUrl] = useState('');
 
   const exportData = () => {
     setIsExporting(true);
@@ -90,6 +92,50 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose, onDataChange 
     }
   };
 
+  const generateShareLink = () => {
+    try {
+      const dailyData = StorageManager.getDailyData();
+      const stores = StorageManager.getStores();
+      
+      const shareData = {
+        dailyData,
+        stores,
+        shareDate: new Date().toISOString(),
+        version: '1.0.0'
+      };
+
+      const url = URLDataSharing.shareData(shareData);
+      setShareUrl(url);
+      
+      // Copy to clipboard
+      navigator.clipboard.writeText(url).then(() => {
+        alert('Share link copied to clipboard!');
+      }).catch(() => {
+        alert('Share link generated! Copy it manually.');
+      });
+    } catch (error) {
+      console.error('Share error:', error);
+      alert('Failed to generate share link');
+    }
+  };
+
+  const loadSharedData = () => {
+    try {
+      const sharedData = URLDataSharing.loadSharedData();
+      if (sharedData && sharedData.dailyData && sharedData.stores) {
+        StorageManager.saveDailyData(sharedData.dailyData);
+        StorageManager.saveStores(sharedData.stores);
+        onDataChange();
+        alert('Shared data loaded successfully!');
+      } else {
+        alert('No shared data found in URL');
+      }
+    } catch (error) {
+      console.error('Load shared data error:', error);
+      alert('Failed to load shared data');
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-md w-full p-6">
@@ -136,6 +182,55 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose, onDataChange 
             {isImporting && (
               <p className="text-sm text-blue-600 mt-2">Importing data...</p>
             )}
+          </div>
+
+          {/* Share Data */}
+          <div className="border border-blue-200 rounded-lg p-4">
+            <h3 className="font-medium text-blue-900 mb-2">Share Data</h3>
+            <p className="text-sm text-blue-600 mb-3">
+              Generate a shareable link to sync data across devices.
+            </p>
+            <button
+              onClick={generateShareLink}
+              className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+            >
+              <Share2 className="h-4 w-4 mr-2" />
+              Generate Share Link
+            </button>
+            {shareUrl && (
+              <div className="mt-3">
+                <p className="text-xs text-gray-600 mb-2">Share this link:</p>
+                <div className="flex">
+                  <input
+                    type="text"
+                    value={shareUrl}
+                    readOnly
+                    className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded-l-md"
+                  />
+                  <button
+                    onClick={() => navigator.clipboard.writeText(shareUrl)}
+                    className="px-2 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:bg-gray-300"
+                  >
+                    <Copy className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Load Shared Data */}
+          <div className="border border-green-200 rounded-lg p-4">
+            <h3 className="font-medium text-green-900 mb-2">Load Shared Data</h3>
+            <p className="text-sm text-green-600 mb-3">
+              Load data from a shared link (if URL contains shared data).
+            </p>
+            <button
+              onClick={loadSharedData}
+              className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
+            >
+              <Upload className="h-4 w-4 mr-2" />
+              Load from Shared Link
+            </button>
           </div>
 
           {/* Clear Data */}

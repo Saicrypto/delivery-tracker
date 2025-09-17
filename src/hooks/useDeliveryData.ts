@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DailyData, Store, Delivery, ViewMode } from '../types';
 import { StorageManager } from '../utils/storage';
+import { URLDataSharing } from '../utils/cloudStorage';
 import { format } from 'date-fns';
 
 export const useDeliveryData = () => {
@@ -14,6 +15,20 @@ export const useDeliveryData = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Check for shared data first
+        if (URLDataSharing.hasSharedData()) {
+          const sharedData = URLDataSharing.loadSharedData();
+          if (sharedData && sharedData.dailyData && sharedData.stores) {
+            StorageManager.saveDailyData(sharedData.dailyData);
+            StorageManager.saveStores(sharedData.stores);
+            setDailyData(sharedData.dailyData);
+            setStores(sharedData.stores);
+            setLoading(false);
+            return;
+          }
+        }
+
+        // Load local data
         const storedDailyData = StorageManager.getDailyData();
         const storedStores = StorageManager.getStores();
         
