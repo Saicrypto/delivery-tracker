@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Download, Upload, Trash2, Share2, Copy } from 'lucide-react';
+import { Download, Upload, Trash2, Share2, Copy, RefreshCw } from 'lucide-react';
 import { StorageManager } from '../utils/storage';
+import { HybridStorageManager } from '../utils/hybridStorage';
 import { URLDataSharing } from '../utils/cloudStorage';
 
 interface DataManagerProps {
@@ -12,6 +13,7 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose, onDataChange 
   const [isExporting, setIsExporting] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [shareUrl, setShareUrl] = useState('');
+  const [isSyncing, setIsSyncing] = useState(false);
 
   const exportData = () => {
     setIsExporting(true);
@@ -136,6 +138,32 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose, onDataChange 
     }
   };
 
+  const syncToDatabase = async () => {
+    setIsSyncing(true);
+    try {
+      await HybridStorageManager.syncToDatabase();
+      alert('Data synced to database successfully!');
+    } catch (error) {
+      console.error('Sync error:', error);
+      alert('Failed to sync data to database');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
+  const reconnectDatabase = async () => {
+    setIsSyncing(true);
+    try {
+      await HybridStorageManager.reconnect();
+      alert('Database reconnected successfully!');
+    } catch (error) {
+      console.error('Reconnect error:', error);
+      alert('Failed to reconnect to database');
+    } finally {
+      setIsSyncing(false);
+    }
+  };
+
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
       <div className="bg-white rounded-lg max-w-md w-full p-6">
@@ -231,6 +259,32 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose, onDataChange 
               <Upload className="h-4 w-4 mr-2" />
               Load from Shared Link
             </button>
+          </div>
+
+          {/* Database Sync */}
+          <div className="border border-purple-200 rounded-lg p-4">
+            <h3 className="font-medium text-purple-900 mb-2">Database Sync</h3>
+            <p className="text-sm text-purple-600 mb-3">
+              Sync your local data to the online Turso database.
+            </p>
+            <div className="space-y-2">
+              <button
+                onClick={syncToDatabase}
+                disabled={isSyncing}
+                className="w-full flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                {isSyncing ? 'Syncing...' : 'Sync to Database'}
+              </button>
+              <button
+                onClick={reconnectDatabase}
+                disabled={isSyncing}
+                className="w-full flex items-center justify-center px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 disabled:opacity-50"
+              >
+                <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
+                Reconnect Database
+              </button>
+            </div>
           </div>
 
           {/* Clear Data */}

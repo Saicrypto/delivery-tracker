@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DailyData, Store, Delivery, ViewMode } from '../types';
 import { StorageManager } from '../utils/storage';
+import { HybridStorageManager } from '../utils/hybridStorage';
 import { URLDataSharing } from '../utils/cloudStorage';
 import { format } from 'date-fns';
 
@@ -10,11 +11,17 @@ export const useDeliveryData = () => {
   const [currentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [loading, setLoading] = useState(true);
+  const [isOnline, setIsOnline] = useState(false);
 
   // Load initial data
   useEffect(() => {
     const loadData = async () => {
       try {
+        // Initialize database connection
+        await HybridStorageManager.initialize();
+        const status = HybridStorageManager.getConnectionStatus();
+        setIsOnline(status.isOnline);
+
         // Check for shared data first
         if (URLDataSharing.hasSharedData()) {
           const sharedData = URLDataSharing.loadSharedData();
@@ -28,9 +35,9 @@ export const useDeliveryData = () => {
           }
         }
 
-        // Load local data
-        const storedDailyData = StorageManager.getDailyData();
-        const storedStores = StorageManager.getStores();
+        // Load data using hybrid storage (database + local fallback)
+        const storedDailyData = await HybridStorageManager.getDailyData();
+        const storedStores = await HybridStorageManager.getStores();
         
         setDailyData(storedDailyData);
         setStores(storedStores);
@@ -46,6 +53,11 @@ export const useDeliveryData = () => {
         }
       } catch (error) {
         console.error('Error loading data:', error);
+        // Fallback to local storage only
+        const storedDailyData = StorageManager.getDailyData();
+        const storedStores = StorageManager.getStores();
+        setDailyData(storedDailyData);
+        setStores(storedStores);
       } finally {
         setLoading(false);
       }
@@ -67,7 +79,7 @@ export const useDeliveryData = () => {
     return todayData;
   }, [dailyData]);
 
-  const addStore = useCallback((store: Omit<Store, 'id'>) => {
+  const addStore = useCallback(async (store: Omit<Store, 'id'>) => {
     const newStore: Store = {
       ...store,
       id: Date.now().toString()
@@ -75,7 +87,9 @@ export const useDeliveryData = () => {
     
     const updatedStores = [...stores, newStore];
     setStores(updatedStores);
-    StorageManager.saveStores(updatedStores);
+    
+    // Save using hybrid storage (database + local)
+    await HybridStorageManager.saveStore(newStore);
     
     return newStore;
   }, [stores]);
@@ -95,7 +109,7 @@ export const useDeliveryData = () => {
     StorageManager.saveStores(updatedStores);
   }, [stores]);
 
-  const addDelivery = useCallback((delivery: Omit<Delivery, 'id'>) => {
+  const addDelivery = useCallback(async (delivery: Omit<Delivery, 'id'>) => {
     const newDelivery: Delivery = {
       ...delivery,
       id: Date.now().toString()
@@ -122,6 +136,9 @@ export const useDeliveryData = () => {
     if (todayData) {
       StorageManager.updateDailyData(todayData);
     }
+
+    // Save using hybrid storage (database + local)
+    await HybridStorageManager.saveDelivery(newDelivery);
 
     return newDelivery;
   }, [dailyData]);

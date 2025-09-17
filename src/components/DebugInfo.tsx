@@ -1,5 +1,6 @@
 import React from 'react';
 import { StorageManager } from '../utils/storage';
+import { HybridStorageManager } from '../utils/hybridStorage';
 
 interface DebugInfoProps {
   isVisible: boolean;
@@ -21,6 +22,7 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle }) => 
   const dailyData = StorageManager.getDailyData();
   const stores = StorageManager.getStores();
   const isLocalStorageAvailable = StorageManager.isLocalStorageAvailable();
+  const dbStatus = HybridStorageManager.getConnectionStatus();
 
   return (
     <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg p-4 shadow-lg max-w-sm z-50">
@@ -35,6 +37,12 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle }) => 
       </div>
       
       <div className="text-xs space-y-1">
+        <div>
+          <strong>Database:</strong> {dbStatus.isOnline ? '✅ Connected' : '❌ Offline'}
+        </div>
+        <div>
+          <strong>DB Initialized:</strong> {dbStatus.dbInitialized ? '✅ Yes' : '❌ No'}
+        </div>
         <div>
           <strong>localStorage:</strong> {isLocalStorageAvailable ? '✅ Available' : '❌ Not Available'}
         </div>
