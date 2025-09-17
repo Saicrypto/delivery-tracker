@@ -10,7 +10,10 @@ export interface Delivery {
   storeId: string;
   storeName: string;
   date: string; // ISO date string
+  // Some parts of the app use numberOfDeliveries; others use totalDeliveries.
+  // Keep both for compatibility across devices and data sources.
   totalDeliveries: number;
+  numberOfDeliveries?: number;
   delivered: number;
   pending: number;
   bills: number;

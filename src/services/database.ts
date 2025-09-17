@@ -108,7 +108,8 @@ export class DatabaseService {
           delivery.storeId,
           delivery.storeName,
           delivery.date,
-          delivery.totalDeliveries,
+          // Use numberOfDeliveries if present; fallback to totalDeliveries for backward-compat
+          (delivery as any).numberOfDeliveries ?? (delivery as any).totalDeliveries ?? 0,
           delivery.delivered,
           delivery.pending,
           delivery.bills,
@@ -133,7 +134,9 @@ export class DatabaseService {
         storeId: row.store_id as string,
         storeName: row.store_name as string,
         date: row.date as string,
-        totalDeliveries: row.total_deliveries as number,
+        // Map DB total_deliveries to both fields for compatibility
+        numberOfDeliveries: (row.total_deliveries as number) ?? 0,
+        totalDeliveries: (row.total_deliveries as number) ?? 0,
         delivered: row.delivered as number,
         pending: row.pending as number,
         bills: row.bills as number,
@@ -162,7 +165,8 @@ export class DatabaseService {
         storeId: row.store_id as string,
         storeName: row.store_name as string,
         date: row.date as string,
-        totalDeliveries: row.total_deliveries as number,
+        numberOfDeliveries: (row.total_deliveries as number) ?? 0,
+        totalDeliveries: (row.total_deliveries as number) ?? 0,
         delivered: row.delivered as number,
         pending: row.pending as number,
         bills: row.bills as number,
@@ -209,16 +213,17 @@ export class DatabaseService {
 
       // Create DailyData objects
       const dailyData: DailyData[] = Object.entries(deliveriesByDate).map(([date, dayDeliveries]) => {
-        const summary = dayDeliveries.reduce((acc, delivery) => ({
-          totalStores: acc.totalStores + 1,
-          totalDeliveries: acc.totalDeliveries + delivery.totalDeliveries,
-          totalDelivered: acc.totalDelivered + delivery.delivered,
-          totalPending: acc.totalPending + delivery.pending,
-          totalBills: acc.totalBills + delivery.bills,
-          totalRevenue: acc.totalRevenue + delivery.paymentStatus.total,
-          totalPaid: acc.totalPaid + delivery.paymentStatus.paid,
-          totalOutstanding: acc.totalOutstanding + delivery.paymentStatus.pending + delivery.paymentStatus.overdue
-        }), {
+        const summary: DailyData['summary'] = dayDeliveries.reduce((acc: DailyData['summary'], delivery: any) => {
+          const num = delivery.numberOfDeliveries ?? delivery.totalDeliveries ?? 0;
+          acc.totalDeliveries += num;
+          acc.totalDelivered += delivery.delivered ?? 0;
+          acc.totalPending += delivery.pending ?? 0;
+          acc.totalBills += delivery.bills ?? 0;
+          acc.totalRevenue += delivery.paymentStatus?.total ?? 0;
+          acc.totalPaid += delivery.paymentStatus?.paid ?? 0;
+          acc.totalOutstanding += (delivery.paymentStatus?.pending ?? 0) + (delivery.paymentStatus?.overdue ?? 0);
+          return acc;
+        }, {
           totalStores: 0,
           totalDeliveries: 0,
           totalDelivered: 0,
