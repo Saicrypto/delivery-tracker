@@ -4,8 +4,8 @@ import { DailyData, Store, Delivery } from '../types';
 // Initialize Turso client
 const client = createClient({
   url: 'libsql://delivery-update-saicrypto.aws-ap-south-1.turso.io',
-  // Note: In production, you should use environment variables for auth token
-  // authToken: process.env.TURSO_AUTH_TOKEN
+  // For now, we'll try without auth token first
+  // If this fails, you'll need to add your Turso auth token
 });
 
 export class DatabaseService {
@@ -252,7 +252,27 @@ export class DatabaseService {
       return true;
     } catch (error) {
       console.error('Database connection failed:', error);
+      console.log('This might be due to missing authentication token or network issues');
       return false;
+    }
+  }
+
+  // Get connection error details
+  static async getConnectionError(): Promise<string> {
+    try {
+      await client.execute('SELECT 1');
+      return 'No error - connection successful';
+    } catch (error) {
+      if (error instanceof Error) {
+        if (error.message.includes('401') || error.message.includes('unauthorized')) {
+          return 'Authentication required - need Turso auth token';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          return 'Network error - check internet connection';
+        } else {
+          return `Database error: ${error.message}`;
+        }
+      }
+      return `Unknown error: ${String(error)}`;
     }
   }
 }

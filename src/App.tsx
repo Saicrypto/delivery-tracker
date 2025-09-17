@@ -181,6 +181,7 @@ function App() {
           {/* Database Inspector Modal */}
           {showDatabaseInspector && (
             <DatabaseInspector
+              isVisible={showDatabaseInspector}
               onClose={() => setShowDatabaseInspector(false)}
             />
           )}

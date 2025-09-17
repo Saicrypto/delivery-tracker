@@ -13,10 +13,11 @@ export class DatabaseTester {
       const isConnected = await DatabaseService.testConnection();
       
       if (!isConnected) {
+        const errorDetails = await DatabaseService.getConnectionError();
         return {
           isConnected: false,
           message: '❌ Database connection failed',
-          details: 'Could not connect to Turso database'
+          details: errorDetails
         };
       }
 

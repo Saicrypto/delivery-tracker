@@ -30,20 +30,20 @@ export const DatabaseInspector: React.FC<DatabaseInspectorProps> = ({ isVisible,
     }
   };
 
-  const runCustomQuery = async (query: string) => {
-    setIsLoading(true);
-    setError('');
-    
-    try {
-      // This would need to be implemented in DatabaseService
-      console.log('Custom query:', query);
-      setError('Custom queries not implemented yet');
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Query failed');
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  // const runCustomQuery = async (query: string) => {
+  //   setIsLoading(true);
+  //   setError('');
+  //   
+  //   try {
+  //     // This would need to be implemented in DatabaseService
+  //     console.log('Custom query:', query);
+  //     setError('Custom queries not implemented yet');
+  //   } catch (err) {
+  //     setError(err instanceof Error ? err.message : 'Query failed');
+  //   } finally {
+  //     setIsLoading(false);
+  //   }
+  // };
 
   if (!isVisible) return null;
 
