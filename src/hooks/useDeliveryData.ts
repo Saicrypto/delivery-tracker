@@ -4,6 +4,7 @@ import { StorageManager } from '../utils/storage';
 import { HybridStorageManager } from '../utils/hybridStorage';
 import { URLDataSharing } from '../utils/cloudStorage';
 import { format } from 'date-fns';
+import { MobileFix } from '../utils/mobileFix';
 
 export const useDeliveryData = () => {
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
@@ -46,7 +47,7 @@ export const useDeliveryData = () => {
         setStores(storedStores);
         
         // Create today's data if it doesn't exist
-        const today = format(new Date(), 'yyyy-MM-dd');
+        const today = MobileFix.getTodayString();
         const todayExists = storedDailyData.some(data => data.date === today);
         
         if (!todayExists) {
@@ -74,7 +75,7 @@ export const useDeliveryData = () => {
   }, []);
 
   const getTodayData = useCallback((): DailyData => {
-    const today = format(new Date(), 'yyyy-MM-dd');
+    const today = MobileFix.getTodayString();
     const todayData = dailyData.find(data => data.date === today);
     
     console.log('getTodayData called for date:', today);
@@ -130,7 +131,7 @@ export const useDeliveryData = () => {
 
     console.log('Adding delivery:', newDelivery);
 
-    const today = format(new Date(), 'yyyy-MM-dd');
+    const today = MobileFix.getTodayString();
     let updatedDailyData = dailyData.map(data => {
       if (data.date === today) {
         const updatedDeliveries = [...data.deliveries, newDelivery];

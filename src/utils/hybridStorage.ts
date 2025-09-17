@@ -1,5 +1,6 @@
 import { DailyData, Store, Delivery } from '../types';
 import { StorageManager } from './storage';
+import { MobileFix } from './mobileFix';
 import { DatabaseService } from '../services/database';
 
 export class HybridStorageManager {
@@ -80,7 +81,7 @@ export class HybridStorageManager {
   // Delivery operations
   static async saveDelivery(delivery: Delivery): Promise<void> {
     // Always save to local storage first
-    const today = new Date().toISOString().split('T')[0];
+    const today = MobileFix.getTodayString();
     const localData = StorageManager.getDailyData();
     const todayData = localData.find(d => d.date === today);
     
@@ -134,7 +135,7 @@ export class HybridStorageManager {
 
   static async deleteDelivery(deliveryId: string): Promise<void> {
     // Delete from local storage
-    const today = new Date().toISOString().split('T')[0];
+    const today = MobileFix.getTodayString();
     const localData = StorageManager.getDailyData();
     const todayData = localData.find(d => d.date === today);
     
