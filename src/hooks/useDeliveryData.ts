@@ -39,6 +39,9 @@ export const useDeliveryData = () => {
         const storedDailyData = await HybridStorageManager.getDailyData();
         const storedStores = await HybridStorageManager.getStores();
         
+        console.log('Loaded daily data:', storedDailyData.length, 'entries');
+        console.log('Loaded stores:', storedStores.length, 'stores');
+        
         setDailyData(storedDailyData);
         setStores(storedStores);
         
@@ -52,7 +55,8 @@ export const useDeliveryData = () => {
           StorageManager.updateDailyData(newTodayData);
           setDailyData(prev => [newTodayData, ...prev]);
         } else {
-          console.log('Today\'s data already exists:', today);
+          const todayData = storedDailyData.find(data => data.date === today);
+          console.log('Today\'s data already exists:', today, 'with', todayData?.deliveries.length || 0, 'deliveries');
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -73,12 +77,18 @@ export const useDeliveryData = () => {
     const today = format(new Date(), 'yyyy-MM-dd');
     const todayData = dailyData.find(data => data.date === today);
     
+    console.log('getTodayData called for date:', today);
+    console.log('Available daily data dates:', dailyData.map(d => d.date));
+    console.log('Today data found:', !!todayData);
+    
     if (!todayData) {
+      console.log('Creating new today data entry');
       const newData = StorageManager.createEmptyDailyData(new Date());
       setDailyData(prev => [newData, ...prev]);
       return newData;
     }
     
+    console.log('Today data has', todayData.deliveries.length, 'deliveries');
     return todayData;
   }, [dailyData]);
 
@@ -118,12 +128,15 @@ export const useDeliveryData = () => {
       id: Date.now().toString()
     };
 
+    console.log('Adding delivery:', newDelivery);
+
     const today = format(new Date(), 'yyyy-MM-dd');
-    const updatedDailyData = dailyData.map(data => {
+    let updatedDailyData = dailyData.map(data => {
       if (data.date === today) {
         const updatedDeliveries = [...data.deliveries, newDelivery];
         const updatedSummary = StorageManager.calculateSummary(updatedDeliveries);
         
+        console.log('Updated today data with', updatedDeliveries.length, 'deliveries');
         return {
           ...data,
           deliveries: updatedDeliveries,
@@ -133,15 +146,27 @@ export const useDeliveryData = () => {
       return data;
     });
 
+    // If today's data doesn't exist, create it
+    const todayExists = updatedDailyData.some(data => data.date === today);
+    if (!todayExists) {
+      console.log('Creating today data entry for new delivery');
+      const newTodayData = StorageManager.createEmptyDailyData(new Date());
+      newTodayData.deliveries = [newDelivery];
+      newTodayData.summary = StorageManager.calculateSummary([newDelivery]);
+      updatedDailyData = [newTodayData, ...updatedDailyData];
+    }
+
     setDailyData(updatedDailyData);
     
     const todayData = updatedDailyData.find(data => data.date === today);
     if (todayData) {
       StorageManager.updateDailyData(todayData);
+      console.log('Saved today data to local storage');
     }
 
     // Save using hybrid storage (database + local)
     await HybridStorageManager.saveDelivery(newDelivery);
+    console.log('Saved delivery to hybrid storage');
 
     return newDelivery;
   }, [dailyData]);
@@ -207,6 +232,22 @@ export const useDeliveryData = () => {
     }
   }, [viewMode, dailyData, getTodayData]);
 
+  const refreshData = useCallback(async () => {
+    console.log('Refreshing data from database...');
+    try {
+      const storedDailyData = await HybridStorageManager.getDailyData();
+      const storedStores = await HybridStorageManager.getStores();
+      
+      console.log('Refreshed daily data:', storedDailyData.length, 'entries');
+      console.log('Refreshed stores:', storedStores.length, 'stores');
+      
+      setDailyData(storedDailyData);
+      setStores(storedStores);
+    } catch (error) {
+      console.error('Error refreshing data:', error);
+    }
+  }, []);
+
   return {
     dailyData,
     stores,
@@ -221,6 +262,7 @@ export const useDeliveryData = () => {
     deleteStore,
     addDelivery,
     updateDelivery,
-    deleteDelivery
+    deleteDelivery,
+    refreshData
   };
 };

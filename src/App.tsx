@@ -22,7 +22,8 @@ function App() {
     getTodayData,
     addStore,
     addDelivery,
-    deleteDelivery
+    deleteDelivery,
+    refreshData
   } = useDeliveryData();
 
   const [showStoreForm, setShowStoreForm] = useState(false);
@@ -199,6 +200,7 @@ function App() {
             isVisible={showDebug} 
             onToggle={() => setShowDebug(!showDebug)}
             onOpenDatabaseInspector={() => setShowDatabaseInspector(true)}
+            onRefreshData={refreshData}
           />
     </div>
   );

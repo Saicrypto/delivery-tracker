@@ -8,9 +8,10 @@ interface DebugInfoProps {
   isVisible: boolean;
   onToggle: () => void;
   onOpenDatabaseInspector?: () => void;
+  onRefreshData?: () => void;
 }
 
-export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpenDatabaseInspector }) => {
+export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpenDatabaseInspector, onRefreshData }) => {
   const [testResult, setTestResult] = useState<string>('');
   const [isTesting, setIsTesting] = useState(false);
 
@@ -121,6 +122,15 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
               className="w-full px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
             >
               Open Database Inspector
+            </button>
+          )}
+          
+          {onRefreshData && (
+            <button
+              onClick={onRefreshData}
+              className="w-full px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700"
+            >
+              Refresh Data from Database
             </button>
           )}
           
