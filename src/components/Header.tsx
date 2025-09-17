@@ -1,17 +1,19 @@
 import React from 'react';
-import { Calendar, TrendingUp, Package } from 'lucide-react';
+import { Calendar, TrendingUp, Package, Settings } from 'lucide-react';
 import { ViewMode } from '../types';
 
 interface HeaderProps {
   viewMode: ViewMode;
   onViewModeChange: (mode: ViewMode) => void;
   currentDate: Date;
+  onDataManagerOpen?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   viewMode,
   onViewModeChange,
-  currentDate
+  currentDate,
+  onDataManagerOpen
 }) => {
   const formatDate = (date: Date) => {
     return date.toLocaleDateString('en-US', {
@@ -35,6 +37,15 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           
           <div className="flex items-center space-x-2">
+            {onDataManagerOpen && (
+              <button
+                onClick={onDataManagerOpen}
+                className="p-2 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-md transition-colors"
+                title="Data Management"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
+            )}
             <div className="flex bg-gray-100 rounded-lg p-1">
               <button
                 onClick={() => onViewModeChange('daily')}

@@ -8,8 +8,24 @@ const STORAGE_KEYS = {
 };
 
 export class StorageManager {
+  // Check if localStorage is available (important for mobile)
+  static isLocalStorageAvailable(): boolean {
+    try {
+      const test = '__localStorage_test__';
+      localStorage.setItem(test, test);
+      localStorage.removeItem(test);
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   static getDailyData(): DailyData[] {
     try {
+      if (!this.isLocalStorageAvailable()) {
+        console.warn('localStorage not available, returning empty data');
+        return [];
+      }
       const data = localStorage.getItem(STORAGE_KEYS.DAILY_DATA);
       return data ? JSON.parse(data) : [];
     } catch (error) {
@@ -20,6 +36,10 @@ export class StorageManager {
 
   static saveDailyData(data: DailyData[]): void {
     try {
+      if (!this.isLocalStorageAvailable()) {
+        console.warn('localStorage not available, cannot save data');
+        return;
+      }
       localStorage.setItem(STORAGE_KEYS.DAILY_DATA, JSON.stringify(data));
     } catch (error) {
       console.error('Error saving daily data:', error);
@@ -28,6 +48,10 @@ export class StorageManager {
 
   static getStores(): Store[] {
     try {
+      if (!this.isLocalStorageAvailable()) {
+        console.warn('localStorage not available, returning empty stores');
+        return [];
+      }
       const data = localStorage.getItem(STORAGE_KEYS.STORES);
       return data ? JSON.parse(data) : [];
     } catch (error) {
@@ -38,6 +62,10 @@ export class StorageManager {
 
   static saveStores(stores: Store[]): void {
     try {
+      if (!this.isLocalStorageAvailable()) {
+        console.warn('localStorage not available, cannot save stores');
+        return;
+      }
       localStorage.setItem(STORAGE_KEYS.STORES, JSON.stringify(stores));
     } catch (error) {
       console.error('Error saving stores:', error);

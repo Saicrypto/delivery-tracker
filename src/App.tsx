@@ -5,6 +5,8 @@ import { SummaryDashboard } from './components/SummaryDashboard';
 import { DeliveryCard } from './components/DeliveryCard';
 import { StoreForm } from './components/StoreForm';
 import { ChartsSection } from './components/ChartsSection';
+import { DebugInfo } from './components/DebugInfo';
+import { DataManager } from './components/DataManager';
 import { useDeliveryData } from './hooks/useDeliveryData';
 import './App.css';
 
@@ -24,6 +26,8 @@ function App() {
 
   const [showStoreForm, setShowStoreForm] = useState(false);
   const [showCharts, setShowCharts] = useState(false);
+  const [showDebug, setShowDebug] = useState(false);
+  const [showDataManager, setShowDataManager] = useState(false);
 
   const currentData = getDataForView();
   const todayData = getTodayData();
@@ -45,6 +49,7 @@ function App() {
         viewMode={viewMode}
         onViewModeChange={setViewMode}
         currentDate={currentDate}
+        onDataManagerOpen={() => setShowDataManager(true)}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -163,6 +168,14 @@ function App() {
           />
         )}
 
+        {/* Data Manager Modal */}
+        {showDataManager && (
+          <DataManager
+            onClose={() => setShowDataManager(false)}
+            onDataChange={() => window.location.reload()}
+          />
+        )}
+
         {/* Footer */}
         <footer className="mt-12 py-6 border-t border-gray-200">
           <div className="text-center text-sm text-gray-600">
@@ -170,6 +183,9 @@ function App() {
           </div>
         </footer>
       </main>
+
+      {/* Debug Component */}
+      <DebugInfo isVisible={showDebug} onToggle={() => setShowDebug(!showDebug)} />
     </div>
   );
 }
