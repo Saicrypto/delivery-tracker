@@ -49,3 +49,4 @@ export interface ChartData {
 }
 
 export type ViewMode = 'daily' | 'weekly' | 'monthly';
+

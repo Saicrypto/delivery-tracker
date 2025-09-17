@@ -216,3 +216,4 @@ npm run build
 ---
 
 **Choose GitHub Pages for the best free hosting experience!** 🚀
+

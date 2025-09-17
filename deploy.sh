@@ -39,3 +39,4 @@ npm run deploy
 echo "✅ Deployment complete!"
 echo "Your app should be live at: https://YOUR_USERNAME.github.io/delivery-tracker"
 echo "Don't forget to update the homepage URL in package.json!"
+
