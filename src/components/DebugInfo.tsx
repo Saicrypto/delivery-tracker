@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StorageManager } from '../utils/storage';
 import { HybridStorageManager } from '../utils/hybridStorage';
 import { DatabaseTester } from '../utils/databaseTest';
+import { DataSyncManager } from '../utils/dataSync';
 import { MobileFix } from '../utils/mobileFix';
 
 interface DebugInfoProps {
@@ -9,9 +10,10 @@ interface DebugInfoProps {
   onToggle: () => void;
   onOpenDatabaseInspector?: () => void;
   onRefreshData?: () => void;
+  onClearAndResync?: () => void;
 }
 
-export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpenDatabaseInspector, onRefreshData }) => {
+export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpenDatabaseInspector, onRefreshData, onClearAndResync }) => {
   const [testResult, setTestResult] = useState<string>('');
   const [isTesting, setIsTesting] = useState(false);
 
@@ -31,6 +33,7 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
   const isLocalStorageAvailable = StorageManager.isLocalStorageAvailable();
   const dbStatus = HybridStorageManager.getConnectionStatus();
   const mobileInfo = MobileFix.getMobileDebugInfo();
+  const syncInfo = DataSyncManager.getDebugInfo();
 
   const runDatabaseTest = async () => {
     setIsTesting(true);
@@ -92,6 +95,15 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
         <div>
           <strong>localStorage Working:</strong> {mobileInfo.localStorageWorking ? '✅ Yes' : '❌ No'}
         </div>
+        <div>
+          <strong>Today:</strong> {syncInfo.today}
+        </div>
+        <div>
+          <strong>Today Deliveries:</strong> {syncInfo.todayDeliveries}
+        </div>
+        <div>
+          <strong>Today Exists:</strong> {syncInfo.todayExists ? '✅ Yes' : '❌ No'}
+        </div>
         
         {dailyData.length > 0 && (
           <div className="mt-2">
@@ -131,6 +143,15 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
               className="w-full px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700"
             >
               Refresh Data from Database
+            </button>
+          )}
+          
+          {onClearAndResync && (
+            <button
+              onClick={onClearAndResync}
+              className="w-full px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700"
+            >
+              Clear All & Resync
             </button>
           )}
           

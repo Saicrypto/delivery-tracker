@@ -23,7 +23,8 @@ function App() {
     addStore,
     addDelivery,
     deleteDelivery,
-    refreshData
+    refreshData,
+    clearAndResync
   } = useDeliveryData();
 
   const [showStoreForm, setShowStoreForm] = useState(false);
@@ -201,6 +202,7 @@ function App() {
             onToggle={() => setShowDebug(!showDebug)}
             onOpenDatabaseInspector={() => setShowDatabaseInspector(true)}
             onRefreshData={refreshData}
+            onClearAndResync={clearAndResync}
           />
     </div>
   );
