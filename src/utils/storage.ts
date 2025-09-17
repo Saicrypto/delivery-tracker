@@ -1,5 +1,6 @@
 import { DailyData, Store, Delivery } from '../types';
 import { format, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
+import { MobileFix } from './mobileFix';
 
 const STORAGE_KEYS = {
   DAILY_DATA: 'delivery-tracker-daily-data',
@@ -26,8 +27,21 @@ export class StorageManager {
         console.warn('localStorage not available, returning empty data');
         return [];
       }
+      
+      // Enhanced mobile compatibility
+      if (MobileFix.isMobileBrowser()) {
+        console.log('Mobile browser detected, using enhanced data loading');
+      }
+      
       const data = localStorage.getItem(STORAGE_KEYS.DAILY_DATA);
-      return data ? JSON.parse(data) : [];
+      if (!data) {
+        console.log('No daily data found in localStorage');
+        return [];
+      }
+      
+      const parsed = JSON.parse(data);
+      console.log(`Loaded ${parsed.length} daily data entries`);
+      return parsed;
     } catch (error) {
       console.error('Error loading daily data:', error);
       return [];

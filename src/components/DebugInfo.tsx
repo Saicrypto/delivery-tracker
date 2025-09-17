@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { StorageManager } from '../utils/storage';
 import { HybridStorageManager } from '../utils/hybridStorage';
 import { DatabaseTester } from '../utils/databaseTest';
+import { MobileFix } from '../utils/mobileFix';
 
 interface DebugInfoProps {
   isVisible: boolean;
@@ -28,6 +29,7 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
   const stores = StorageManager.getStores();
   const isLocalStorageAvailable = StorageManager.isLocalStorageAvailable();
   const dbStatus = HybridStorageManager.getConnectionStatus();
+  const mobileInfo = MobileFix.getMobileDebugInfo();
 
   const runDatabaseTest = async () => {
     setIsTesting(true);
@@ -80,6 +82,15 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
         <div>
           <strong>Viewport:</strong> {window.innerWidth}x{window.innerHeight}
         </div>
+        <div>
+          <strong>Mobile:</strong> {mobileInfo.isMobile ? '✅ Yes' : '❌ No'}
+        </div>
+        <div>
+          <strong>Mobile Browser:</strong> {mobileInfo.isMobileBrowser ? '✅ Yes' : '❌ No'}
+        </div>
+        <div>
+          <strong>localStorage Working:</strong> {mobileInfo.localStorageWorking ? '✅ Yes' : '❌ No'}
+        </div>
         
         {dailyData.length > 0 && (
           <div className="mt-2">
@@ -110,6 +121,15 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
               className="w-full px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
             >
               Open Database Inspector
+            </button>
+          )}
+          
+          {mobileInfo.isMobileBrowser && (
+            <button
+              onClick={() => MobileFix.forceRefreshData()}
+              className="w-full px-2 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700"
+            >
+              Force Refresh (Mobile Fix)
             </button>
           )}
           

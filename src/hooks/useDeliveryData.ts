@@ -47,9 +47,12 @@ export const useDeliveryData = () => {
         const todayExists = storedDailyData.some(data => data.date === today);
         
         if (!todayExists) {
+          console.log('Creating today\'s data entry:', today);
           const newTodayData = StorageManager.createEmptyDailyData(new Date());
           StorageManager.updateDailyData(newTodayData);
           setDailyData(prev => [newTodayData, ...prev]);
+        } else {
+          console.log('Today\'s data already exists:', today);
         }
       } catch (error) {
         console.error('Error loading data:', error);
