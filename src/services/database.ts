@@ -4,8 +4,7 @@ import { DailyData, Store, Delivery } from '../types';
 // Initialize Turso client
 const client = createClient({
   url: 'libsql://delivery-update-saicrypto.aws-ap-south-1.turso.io',
-  // For now, we'll try without auth token first
-  // If this fails, you'll need to add your Turso auth token
+  authToken: 'eyJhbGciOiJFZERTQSIsInR5cCI6IkpXVCJ9.eyJpYXQiOjE3NTgxMzgzOTIsImlkIjoiZTQyMzRlNzctZGU5OS00MzFhLTg5MzUtNmY5NzIzZmI5YmY0IiwicmlkIjoiZmM2ZWZhZjYtMzRlZS00ZGU0LWJiZDYtMDA0ZjM1MGZmODY2In0.G9XEg8zG_rieLV0hzIDZz7SZO2rjhxRX7sDQD9tObLAOUI6B6A399dxJr8NCH6PMWIsTPf68Rvh5OLPQZBkLCQ'
 });
 
 export class DatabaseService {
