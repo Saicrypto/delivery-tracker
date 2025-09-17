@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { StorageManager } from '../utils/storage';
 import { HybridStorageManager } from '../utils/hybridStorage';
+import { DatabaseTester } from '../utils/databaseTest';
 
 interface DebugInfoProps {
   isVisible: boolean;
@@ -8,6 +9,9 @@ interface DebugInfoProps {
 }
 
 export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle }) => {
+  const [testResult, setTestResult] = useState<string>('');
+  const [isTesting, setIsTesting] = useState(false);
+
   if (!isVisible) {
     return (
       <button
@@ -23,6 +27,20 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle }) => 
   const stores = StorageManager.getStores();
   const isLocalStorageAvailable = StorageManager.isLocalStorageAvailable();
   const dbStatus = HybridStorageManager.getConnectionStatus();
+
+  const runDatabaseTest = async () => {
+    setIsTesting(true);
+    setTestResult('');
+    
+    try {
+      const result = await DatabaseTester.testConnection();
+      setTestResult(`${result.message}\n${JSON.stringify(result.details, null, 2)}`);
+    } catch (error) {
+      setTestResult(`❌ Test failed: ${error}`);
+    } finally {
+      setIsTesting(false);
+    }
+  };
 
   return (
     <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg p-4 shadow-lg max-w-sm z-50">
@@ -74,6 +92,23 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle }) => 
             </div>
           </div>
         )}
+        
+        {/* Database Test Section */}
+        <div className="mt-3 pt-2 border-t border-gray-200">
+          <button
+            onClick={runDatabaseTest}
+            disabled={isTesting}
+            className="w-full px-2 py-1 bg-blue-600 text-white text-xs rounded hover:bg-blue-700 disabled:opacity-50"
+          >
+            {isTesting ? 'Testing...' : 'Test Database Connection'}
+          </button>
+          
+          {testResult && (
+            <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
+              <pre className="whitespace-pre-wrap">{testResult}</pre>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );
