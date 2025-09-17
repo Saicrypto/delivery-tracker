@@ -6,9 +6,10 @@ import { DatabaseTester } from '../utils/databaseTest';
 interface DebugInfoProps {
   isVisible: boolean;
   onToggle: () => void;
+  onOpenDatabaseInspector?: () => void;
 }
 
-export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle }) => {
+export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpenDatabaseInspector }) => {
   const [testResult, setTestResult] = useState<string>('');
   const [isTesting, setIsTesting] = useState(false);
 
@@ -94,7 +95,7 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle }) => 
         )}
         
         {/* Database Test Section */}
-        <div className="mt-3 pt-2 border-t border-gray-200">
+        <div className="mt-3 pt-2 border-t border-gray-200 space-y-2">
           <button
             onClick={runDatabaseTest}
             disabled={isTesting}
@@ -102,6 +103,15 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle }) => 
           >
             {isTesting ? 'Testing...' : 'Test Database Connection'}
           </button>
+          
+          {onOpenDatabaseInspector && (
+            <button
+              onClick={onOpenDatabaseInspector}
+              className="w-full px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700"
+            >
+              Open Database Inspector
+            </button>
+          )}
           
           {testResult && (
             <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
