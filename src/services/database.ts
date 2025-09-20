@@ -8,6 +8,55 @@ const client = createClient({
 });
 
 export class DatabaseService {
+  // Check if a column exists on a table
+  private static async hasColumn(table: string, column: string): Promise<boolean> {
+    try {
+      const result = await client.execute({
+        sql: `SELECT 1 FROM pragma_table_info(?) WHERE name = ?`,
+        args: [table, column]
+      });
+      return (result.rows?.length || 0) > 0;
+    } catch (e) {
+      return false;
+    }
+  }
+
+  // Run lightweight migrations to add missing columns
+  private static async migrateSchema(): Promise<void> {
+    // Stores: price_per_order
+    try {
+      const hasPricePerOrder = await this.hasColumn('stores', 'price_per_order');
+      if (!hasPricePerOrder) {
+        await client.execute(`ALTER TABLE stores ADD COLUMN price_per_order REAL DEFAULT 0`);
+        console.log('Schema: Added stores.price_per_order');
+      }
+    } catch (e) {
+      console.warn('Schema migration (stores) skipped:', e);
+    }
+
+    // Deliveries: new columns
+    const deliveryColumns: Array<{ name: string; ddl: string }> = [
+      { name: 'customer_name', ddl: `ALTER TABLE deliveries ADD COLUMN customer_name TEXT DEFAULT ''` },
+      { name: 'phone_number', ddl: `ALTER TABLE deliveries ADD COLUMN phone_number TEXT DEFAULT ''` },
+      { name: 'address', ddl: `ALTER TABLE deliveries ADD COLUMN address TEXT DEFAULT ''` },
+      { name: 'item_details', ddl: `ALTER TABLE deliveries ADD COLUMN item_details TEXT DEFAULT ''` },
+      { name: 'order_number', ddl: `ALTER TABLE deliveries ADD COLUMN order_number TEXT DEFAULT ''` },
+      { name: 'delivery_status', ddl: `ALTER TABLE deliveries ADD COLUMN delivery_status TEXT DEFAULT 'pending pickup'` },
+      { name: 'order_price', ddl: `ALTER TABLE deliveries ADD COLUMN order_price REAL DEFAULT 0` }
+    ];
+
+    for (const col of deliveryColumns) {
+      try {
+        const exists = await this.hasColumn('deliveries', col.name);
+        if (!exists) {
+          await client.execute(col.ddl);
+          console.log(`Schema: Added deliveries.${col.name}`);
+        }
+      } catch (e) {
+        console.warn(`Schema migration (deliveries.${col.name}) skipped:`, e);
+      }
+    }
+  }
   // Wrap DB operations and self-heal on missing schema
   private static async withSelfHealing<T>(operation: () => Promise<T>): Promise<T> {
     try {
@@ -75,6 +124,9 @@ export class DatabaseService {
       `);
 
       console.log('Database tables initialized successfully');
+
+      // Ensure schema has all expected columns for existing databases
+      await this.migrateSchema();
     } catch (error) {
       console.error('Error initializing database tables:', error);
       throw error;

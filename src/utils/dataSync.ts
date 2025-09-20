@@ -9,6 +9,10 @@ export class DataSyncManager {
     try {
       console.log('🔄 Starting force sync from database...');
       
+      // Get local first to avoid flicker
+      const localDailyData = StorageManager.getDailyData();
+      const localStores = StorageManager.getStores();
+
       // Get all data from database
       const dbStores = await DatabaseService.getStores();
       const dbDeliveries = await DatabaseService.getDeliveries();
@@ -24,6 +28,17 @@ export class DataSyncManager {
         deliveriesByDate[delivery.date].push(delivery);
       });
       
+      // Merge DB deliveries with local for today (avoid wiping un-synced local)
+      const today = MobileFix.getTodayString();
+      const localToday = localDailyData.find(d => d.date === today)?.deliveries || [];
+      const dbToday = deliveriesByDate[today] || [];
+
+      // Index by id to merge
+      const mergedTodayMap: Record<string, Delivery> = {};
+      [...dbToday, ...localToday].forEach(d => { mergedTodayMap[d.id] = d; });
+      const mergedToday = Object.values(mergedTodayMap);
+      deliveriesByDate[today] = mergedToday;
+
       // Create DailyData objects
       const dailyData: DailyData[] = Object.entries(deliveriesByDate).map(([date, deliveries]) => {
         const summary = StorageManager.calculateSummary(deliveries);
@@ -39,12 +54,11 @@ export class DataSyncManager {
       
       // Save to local storage
       StorageManager.saveDailyData(dailyData);
-      StorageManager.saveStores(dbStores);
+      StorageManager.saveStores(dbStores.length ? dbStores : localStores);
       
       console.log(`✅ Synced ${dailyData.length} days of data and ${dbStores.length} stores to local storage`);
       
       // Log today's data specifically
-      const today = MobileFix.getTodayString();
       const todayData = dailyData.find(d => d.date === today);
       console.log(`📅 Today (${today}) has ${todayData?.deliveries.length || 0} deliveries`);
       
