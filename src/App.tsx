@@ -3,6 +3,7 @@ import { Plus, BarChart3 } from 'lucide-react';
 import { Header } from './components/Header';
 import { SummaryDashboard } from './components/SummaryDashboard';
 import { DeliveryCard } from './components/DeliveryCard';
+import { GroupedDeliveries } from './components/GroupedDeliveries';
 import { StoreForm } from './components/StoreForm';
 import { ChartsSection } from './components/ChartsSection';
 import { DebugInfo } from './components/DebugInfo';
@@ -135,20 +136,19 @@ function App() {
               </button>
             </div>
           ) : (
-            <div className="space-y-3">
-              {viewMode === 'daily' 
-                ? todayData.deliveries.map(delivery => (
-                    <DeliveryCard
-                      key={delivery.id}
-                      delivery={delivery}
-                      onEdit={(delivery) => {
-                        // For editing, you could open a form similar to StoreForm
-                        console.log('Edit delivery:', delivery);
-                      }}
-                      onDelete={deleteDelivery}
-                    />
-                  ))
-                : currentData.flatMap(dayData => 
+            <>
+              {viewMode === 'daily' ? (
+                <GroupedDeliveries
+                  deliveries={todayData.deliveries}
+                  onEdit={(delivery) => {
+                    // For editing, you could open a form similar to StoreForm
+                    console.log('Edit delivery:', delivery);
+                  }}
+                  onDelete={deleteDelivery}
+                />
+              ) : (
+                <div className="space-y-3">
+                  {currentData.flatMap(dayData => 
                     dayData.deliveries.map(delivery => (
                       <DeliveryCard
                         key={delivery.id}
@@ -156,9 +156,10 @@ function App() {
                         onDelete={deleteDelivery}
                       />
                     ))
-                  )
-              }
-            </div>
+                  )}
+                </div>
+              )}
+            </>
           )}
         </div>
 
