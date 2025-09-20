@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Calendar, TrendingUp, Package, Settings, Trash2 } from 'lucide-react';
 import { ViewMode } from '../types';
 import { CleanupService } from '../services/cleanupService';
+import { PWAInstallButton } from './PWAInstallButton';
 
 interface HeaderProps {
   viewMode: ViewMode;
@@ -77,6 +78,9 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           
           <div className="flex items-center space-x-2">
+            {/* PWA Install Button */}
+            <PWAInstallButton />
+            
             {/* Cleanup Button */}
             {viewMode === 'daily' && deliveredCount > 0 && (
               <button

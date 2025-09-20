@@ -45,17 +45,32 @@ root.render(
   </React.StrictMode>
 );
 
-// Register service worker (in production only)
-if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+// Register service worker (in both development and production for PWA testing)
+if ('serviceWorker' in navigator) {
   window.addEventListener('load', () => {
     navigator.serviceWorker
       .register('/sw.js')
       .then((registration) => {
-        console.log('Service worker registered:', registration.scope);
+        console.log('✅ Service worker registered:', registration.scope);
+        
+        // Check for updates
+        registration.addEventListener('updatefound', () => {
+          console.log('🔄 Service worker update found');
+        });
       })
       .catch((error) => {
-        console.warn('Service worker registration failed:', error);
+        console.warn('❌ Service worker registration failed:', error);
       });
   });
 }
+
+// Add PWA install prompt handling (handled by PWAInstallButton component)
+window.addEventListener('beforeinstallprompt', (e) => {
+  console.log('💾 PWA install prompt available');
+  // Event handling is done in PWAInstallButton component
+});
+
+window.addEventListener('appinstalled', () => {
+  console.log('🎉 PWA was installed successfully');
+});
 
