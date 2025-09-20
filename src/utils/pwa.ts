@@ -13,21 +13,27 @@ export class PWAManager {
   static async registerServiceWorker(): Promise<boolean> {
     if ('serviceWorker' in navigator) {
       try {
-        const registration = await navigator.serviceWorker.register('/sw.js');
-        console.log('Service Worker registered successfully:', registration);
+        const registration = await navigator.serviceWorker.register('/sw.js', {
+          scope: '/'
+        });
+        console.log('✅ Service Worker registered successfully:', registration);
         
         // Check for updates
         registration.addEventListener('updatefound', () => {
-          console.log('New service worker version available');
+          console.log('🔄 New service worker version available');
         });
+
+        // Wait for the service worker to be ready
+        await navigator.serviceWorker.ready;
+        console.log('✅ Service Worker is ready');
         
         return true;
       } catch (error) {
-        console.error('Service Worker registration failed:', error);
+        console.error('❌ Service Worker registration failed:', error);
         return false;
       }
     } else {
-      console.log('Service Workers not supported');
+      console.log('⚠️ Service Workers not supported');
       return false;
     }
   }

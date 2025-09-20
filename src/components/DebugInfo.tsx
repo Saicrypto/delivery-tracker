@@ -3,6 +3,7 @@ import { StorageManager } from '../utils/storage';
 import { HybridStorageManager } from '../utils/hybridStorage';
 import { DatabaseTester } from '../utils/databaseTest';
 import { DataSyncManager } from '../utils/dataSync';
+import { PWAManager } from '../utils/pwa';
 import { MobileFix } from '../utils/mobileFix';
 
 interface DebugInfoProps {
@@ -34,6 +35,7 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
   const dbStatus = HybridStorageManager.getConnectionStatus();
   const mobileInfo = MobileFix.getMobileDebugInfo();
   const syncInfo = DataSyncManager.getDebugInfo();
+  const pwaStatus = PWAManager.getInstallationStatus();
 
   const runDatabaseTest = async () => {
     setIsTesting(true);
@@ -103,6 +105,19 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
         </div>
         <div>
           <strong>Today Exists:</strong> {syncInfo.todayExists ? '✅ Yes' : '❌ No'}
+        </div>
+        
+        <div className="mt-2 pt-2 border-t border-gray-200">
+          <strong>PWA Status:</strong>
+        </div>
+        <div>
+          <strong>Can Install:</strong> {pwaStatus.canInstall ? '✅ Yes' : '❌ No'}
+        </div>
+        <div>
+          <strong>Is Installed:</strong> {pwaStatus.isInstalled ? '✅ Yes' : '❌ No'}
+        </div>
+        <div>
+          <strong>Standalone Mode:</strong> {pwaStatus.isStandalone ? '✅ Yes' : '❌ No'}
         </div>
         
         {dailyData.length > 0 && (

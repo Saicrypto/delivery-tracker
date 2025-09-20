@@ -22,7 +22,8 @@
   },
   "devDependencies": {
     "@tailwindcss/forms": "^0.5.7",
-    "gh-pages": "^6.3.0"
+    "gh-pages": "^6.3.0",
+    "sharp": "^0.34.4"
   },
   "scripts": {
     "start": "react-scripts start",
