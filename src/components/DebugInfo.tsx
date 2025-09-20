@@ -38,7 +38,7 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
   const runDatabaseTest = async () => {
     setIsTesting(true);
     setTestResult('');
-    
+
     try {
       const result = await DatabaseTester.testConnection();
       setTestResult(`${result.message}\n${JSON.stringify(result.details, null, 2)}`);
@@ -48,6 +48,7 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
       setIsTesting(false);
     }
   };
+
 
   return (
     <div className="fixed bottom-4 right-4 bg-white border border-gray-300 rounded-lg p-4 shadow-lg max-w-sm z-50">
@@ -163,7 +164,8 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
               Force Refresh (Mobile Fix)
             </button>
           )}
-          
+
+
           {testResult && (
             <div className="mt-2 p-2 bg-gray-100 rounded text-xs">
               <pre className="whitespace-pre-wrap">{testResult}</pre>
