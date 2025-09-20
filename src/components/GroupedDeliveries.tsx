@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Delivery } from '../types';
-import { Store, IndianRupee, ChevronDown, ChevronUp, Edit, Trash2 } from 'lucide-react';
+import { Delivery, DeliveryStatus } from '../types';
+import { Store, IndianRupee, ChevronDown, ChevronUp, Edit, Trash2, Package, Truck, CheckCircle } from 'lucide-react';
 
 interface GroupedDeliveriesProps {
   deliveries: Delivery[];
   onEdit?: (delivery: Delivery) => void;
   onDelete?: (deliveryId: string) => void;
+  onStatusChange?: (deliveryId: string, newStatus: DeliveryStatus) => void;
 }
 
 interface StoreGroup {
@@ -17,9 +18,24 @@ interface StoreGroup {
 export const GroupedDeliveries: React.FC<GroupedDeliveriesProps> = ({
   deliveries,
   onEdit,
-  onDelete
+  onDelete,
+  onStatusChange
 }) => {
   const [expandedStores, setExpandedStores] = useState<Set<string>>(new Set());
+
+  // Helper function to get status icon and color
+  const getStatusDisplay = (status: DeliveryStatus) => {
+    switch (status) {
+      case 'pending pickup':
+        return { icon: Package, color: 'text-orange-600', bg: 'bg-orange-100', text: 'Pending' };
+      case 'picked up':
+        return { icon: Truck, color: 'text-blue-600', bg: 'bg-blue-100', text: 'Picked Up' };
+      case 'delivered':
+        return { icon: CheckCircle, color: 'text-green-600', bg: 'bg-green-100', text: 'Delivered' };
+      default:
+        return { icon: Package, color: 'text-gray-600', bg: 'bg-gray-100', text: 'Unknown' };
+    }
+  };
 
   // Group deliveries by store name
   const storeGroups: StoreGroup[] = React.useMemo(() => {
@@ -33,7 +49,7 @@ export const GroupedDeliveries: React.FC<GroupedDeliveriesProps> = ({
         };
       }
       acc[storeName].deliveries.push(delivery);
-      acc[storeName].totalAmount += delivery.paymentStatus.total;
+      acc[storeName].totalAmount += delivery.orderPrice || 0;
       return acc;
     }, {} as Record<string, StoreGroup>);
 
@@ -94,6 +110,35 @@ export const GroupedDeliveries: React.FC<GroupedDeliveriesProps> = ({
                     ₹{group.totalAmount.toFixed(0)}
                   </span>
                 </div>
+                
+                {/* Status summary for single orders */}
+                {!hasMultipleOrders && (
+                  <div className="flex items-center space-x-2">
+                    {(() => {
+                      const statusDisplay = getStatusDisplay(group.deliveries[0].deliveryStatus);
+                      const StatusIcon = statusDisplay.icon;
+                      return (
+                        <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs ${statusDisplay.bg}`}>
+                          <StatusIcon className={`h-3 w-3 ${statusDisplay.color}`} />
+                          <span className={statusDisplay.color}>{statusDisplay.text}</span>
+                        </div>
+                      );
+                    })()}
+                    
+                    {onStatusChange && (
+                      <select
+                        value={group.deliveries[0].deliveryStatus}
+                        onChange={(e) => onStatusChange(group.deliveries[0].id, e.target.value as DeliveryStatus)}
+                        className="text-xs px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <option value="pending pickup">Pending Pickup</option>
+                        <option value="picked up">Picked Up</option>
+                        <option value="delivered">Delivered</option>
+                      </select>
+                    )}
+                  </div>
+                )}
 
                 {hasMultipleOrders && (
                   <div className="ml-2">
@@ -170,6 +215,33 @@ export const GroupedDeliveries: React.FC<GroupedDeliveriesProps> = ({
                           <div className="text-xs text-gray-500 font-mono">
                             #{delivery.orderNumber}
                           </div>
+                        )}
+                      </div>
+                      
+                      {/* Status for multiple orders */}
+                      <div className="flex items-center space-x-2">
+                        {(() => {
+                          const statusDisplay = getStatusDisplay(delivery.deliveryStatus);
+                          const StatusIcon = statusDisplay.icon;
+                          return (
+                            <div className={`flex items-center space-x-1 px-2 py-1 rounded-full text-xs ${statusDisplay.bg}`}>
+                              <StatusIcon className={`h-3 w-3 ${statusDisplay.color}`} />
+                              <span className={statusDisplay.color}>{statusDisplay.text}</span>
+                            </div>
+                          );
+                        })()}
+                        
+                        {onStatusChange && (
+                          <select
+                            value={delivery.deliveryStatus}
+                            onChange={(e) => onStatusChange(delivery.id, e.target.value as DeliveryStatus)}
+                            className="text-xs px-2 py-1 border border-gray-300 rounded focus:outline-none focus:ring-1 focus:ring-blue-500"
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            <option value="pending pickup">Pending Pickup</option>
+                            <option value="picked up">Picked Up</option>
+                            <option value="delivered">Delivered</option>
+                          </select>
                         )}
                       </div>
 

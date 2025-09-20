@@ -24,6 +24,7 @@ function App() {
     addStore,
     addDelivery,
     deleteDelivery,
+    updateDelivery,
     refreshData,
     clearAndResync
   } = useDeliveryData();
@@ -145,6 +146,12 @@ function App() {
                     console.log('Edit delivery:', delivery);
                   }}
                   onDelete={deleteDelivery}
+                  onStatusChange={(deliveryId, newStatus) => {
+                    const delivery = todayData.deliveries.find(d => d.id === deliveryId);
+                    if (delivery) {
+                      updateDelivery(deliveryId, { deliveryStatus: newStatus });
+                    }
+                  }}
                 />
               ) : (
                 <div className="space-y-3">

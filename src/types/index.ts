@@ -3,7 +3,10 @@ export interface Store {
   name: string;
   address?: string;
   contact?: string;
+  pricePerOrder?: number; // Default price for orders from this store
 }
+
+export type DeliveryStatus = 'pending pickup' | 'picked up' | 'delivered';
 
 export interface Delivery {
   id: string;
@@ -16,6 +19,8 @@ export interface Delivery {
   address: string;
   itemDetails: string;
   orderNumber: string;
+  deliveryStatus: DeliveryStatus;
+  orderPrice: number; // Price for this specific order
   // Legacy fields for backward compatibility
   totalDeliveries: number;
   numberOfDeliveries?: number;

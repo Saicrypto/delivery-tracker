@@ -71,7 +71,8 @@ export class DatabaseTester {
           id: 'test-store-' + Date.now(),
           name: 'Test Store',
           address: 'Test Address',
-          contact: 'Test Contact'
+          contact: 'Test Contact',
+          pricePerOrder: 500
         };
         
         await DatabaseService.saveStore(testStore);
@@ -89,6 +90,8 @@ export class DatabaseTester {
           address: '123 Test Street',
           itemDetails: '2x Pizza, 1x Coke',
           orderNumber: 'ORD-001',
+          deliveryStatus: 'pending pickup' as any,
+          orderPrice: 450,
           // Legacy fields
           totalDeliveries: 5,
           delivered: 3,

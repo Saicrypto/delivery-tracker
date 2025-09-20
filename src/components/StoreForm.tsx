@@ -15,6 +15,8 @@ interface ParsedData {
   address: string;
   itemDetails: string;
   orderNumber: string;
+  deliveryStatus: 'pending pickup' | 'picked up' | 'delivered';
+  orderPrice: number;
 }
 
 export const StoreForm: React.FC<StoreFormProps> = ({
@@ -31,6 +33,7 @@ export const StoreForm: React.FC<StoreFormProps> = ({
   const [newStoreName, setNewStoreName] = useState('');
   const [newStoreAddress, setNewStoreAddress] = useState('');
   const [newStoreContact, setNewStoreContact] = useState('');
+  const [newStorePricePerOrder, setNewStorePricePerOrder] = useState<number>(0);
   
   // Simplified delivery form
   const [formData, setFormData] = useState<ParsedData>({
@@ -38,7 +41,9 @@ export const StoreForm: React.FC<StoreFormProps> = ({
     phoneNumber: '',
     address: '',
     itemDetails: '',
-    orderNumber: ''
+    orderNumber: '',
+    deliveryStatus: 'pending pickup',
+    orderPrice: 0
   });
 
   // Text parsing
@@ -52,7 +57,9 @@ export const StoreForm: React.FC<StoreFormProps> = ({
       phoneNumber: '',
       address: '',
       itemDetails: '',
-      orderNumber: ''
+      orderNumber: '',
+      deliveryStatus: 'pending pickup',
+      orderPrice: 0
     };
 
     for (const line of lines) {
@@ -78,6 +85,12 @@ export const StoreForm: React.FC<StoreFormProps> = ({
       // Item details (contains product/item keywords or has quantity/price indicators)
       else if ((/item|product|qty|quantity|price|₹|rs/i.test(lowerLine) || /\d+\s*x\s*/i.test(line)) && !result.itemDetails) {
         result.itemDetails = line.replace(/items?\s*:?\s*/i, '').trim();
+        
+        // Try to extract price from item details
+        const priceMatch = line.match(/₹\s*(\d+(?:\.\d{2})?)|rs\s*(\d+(?:\.\d{2})?)|price\s*:?\s*(\d+(?:\.\d{2})?)/i);
+        if (priceMatch && !result.orderPrice) {
+          result.orderPrice = parseFloat(priceMatch[1] || priceMatch[2] || priceMatch[3] || '0');
+        }
       }
       
       // Customer name (first non-matched line or contains name keywords)
@@ -97,8 +110,26 @@ export const StoreForm: React.FC<StoreFormProps> = ({
   const handleParseText = () => {
     if (rawText.trim()) {
       const parsed = parseCustomerData(rawText);
+      // Auto-fill price from selected store if no price was parsed
+      if (!parsed.orderPrice && selectedStoreId) {
+        const selectedStore = stores.find(s => s.id === selectedStoreId);
+        if (selectedStore?.pricePerOrder) {
+          parsed.orderPrice = selectedStore.pricePerOrder;
+        }
+      }
       setFormData(parsed);
       setActiveTab('form');
+    }
+  };
+
+  // Auto-fill price when store is selected
+  const handleStoreSelection = (storeId: string) => {
+    setSelectedStoreId(storeId);
+    if (storeId && formData.orderPrice === 0) {
+      const selectedStore = stores.find(s => s.id === storeId);
+      if (selectedStore?.pricePerOrder) {
+        setFormData(prev => ({ ...prev, orderPrice: selectedStore.pricePerOrder || 0 }));
+      }
     }
   };
 
@@ -128,18 +159,20 @@ export const StoreForm: React.FC<StoreFormProps> = ({
       address: formData.address,
       itemDetails: formData.itemDetails,
       orderNumber: formData.orderNumber,
+      deliveryStatus: formData.deliveryStatus,
+      orderPrice: formData.orderPrice,
       // Legacy fields for backward compatibility (set defaults)
       totalDeliveries: 1,
-      delivered: 1,
-      pending: 0,
+      delivered: formData.deliveryStatus === 'delivered' ? 1 : 0,
+      pending: formData.deliveryStatus === 'pending pickup' ? 1 : 0,
       bills: 1,
       paymentStatus: {
-        total: 0,
+        total: formData.orderPrice,
         paid: 0,
-        pending: 0,
+        pending: formData.orderPrice,
         overdue: 0
       },
-      notes: `Customer: ${formData.customerName}\nPhone: ${formData.phoneNumber}\nAddress: ${formData.address}\nItems: ${formData.itemDetails}\nOrder: ${formData.orderNumber}`.trim()
+      notes: `Customer: ${formData.customerName}\nPhone: ${formData.phoneNumber}\nAddress: ${formData.address}\nItems: ${formData.itemDetails}\nOrder: ${formData.orderNumber}\nPrice: ₹${formData.orderPrice}`.trim()
     };
 
     onSubmit(delivery);
@@ -157,7 +190,8 @@ export const StoreForm: React.FC<StoreFormProps> = ({
     const newStore = await onAddStore({
       name: newStoreName.trim(),
       address: newStoreAddress.trim() || undefined,
-      contact: newStoreContact.trim() || undefined
+      contact: newStoreContact.trim() || undefined,
+      pricePerOrder: newStorePricePerOrder || undefined
     });
 
     setSelectedStoreId(newStore.id);
@@ -165,6 +199,7 @@ export const StoreForm: React.FC<StoreFormProps> = ({
     setNewStoreName('');
     setNewStoreAddress('');
     setNewStoreContact('');
+    setNewStorePricePerOrder(0);
   };
 
   return (
@@ -217,7 +252,7 @@ export const StoreForm: React.FC<StoreFormProps> = ({
             <div className="flex space-x-2">
               <select
                 value={selectedStoreId}
-                onChange={(e) => setSelectedStoreId(e.target.value)}
+                onChange={(e) => handleStoreSelection(e.target.value)}
                 className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 required
               >
@@ -242,7 +277,7 @@ export const StoreForm: React.FC<StoreFormProps> = ({
           {showNewStoreForm && (
             <div className="bg-gray-50 p-4 rounded-lg space-y-4">
               <h3 className="font-medium text-gray-900">Add New Store</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <input
                   type="text"
                   placeholder="Store Name *"
@@ -256,6 +291,15 @@ export const StoreForm: React.FC<StoreFormProps> = ({
                   placeholder="Contact"
                   value={newStoreContact}
                   onChange={(e) => setNewStoreContact(e.target.value)}
+                  className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <input
+                  type="number"
+                  placeholder="Price per Order (₹)"
+                  min="0"
+                  step="0.01"
+                  value={newStorePricePerOrder}
+                  onChange={(e) => setNewStorePricePerOrder(parseFloat(e.target.value) || 0)}
                   className="px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
@@ -389,6 +433,38 @@ Order: ORD-001
                     onChange={(e) => setFormData({ ...formData, itemDetails: e.target.value })}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     placeholder="e.g., 2x Pizza, 1x Coke"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Delivery Status *
+                  </label>
+                  <select
+                    value={formData.deliveryStatus}
+                    onChange={(e) => setFormData({ ...formData, deliveryStatus: e.target.value as any })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  >
+                    <option value="pending pickup">Pending Pickup</option>
+                    <option value="picked up">Picked Up</option>
+                    <option value="delivered">Delivered</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Order Price (₹) *
+                  </label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.orderPrice}
+                    onChange={(e) => setFormData({ ...formData, orderPrice: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
                   />
                 </div>
               </div>

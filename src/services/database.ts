@@ -41,6 +41,7 @@ export class DatabaseService {
           name TEXT NOT NULL,
           address TEXT,
           contact TEXT,
+          price_per_order REAL DEFAULT 0,
           created_at DATETIME DEFAULT CURRENT_TIMESTAMP
         )
       `);
@@ -57,6 +58,8 @@ export class DatabaseService {
           address TEXT DEFAULT '',
           item_details TEXT DEFAULT '',
           order_number TEXT DEFAULT '',
+          delivery_status TEXT DEFAULT 'pending pickup',
+          order_price REAL DEFAULT 0,
           total_deliveries INTEGER NOT NULL DEFAULT 0,
           delivered INTEGER NOT NULL DEFAULT 0,
           pending INTEGER NOT NULL DEFAULT 0,
@@ -84,10 +87,10 @@ export class DatabaseService {
       await this.withSelfHealing(async () => {
         await client.execute({
           sql: `
-            INSERT OR REPLACE INTO stores (id, name, address, contact)
-            VALUES (?, ?, ?, ?)
+            INSERT OR REPLACE INTO stores (id, name, address, contact, price_per_order)
+            VALUES (?, ?, ?, ?, ?)
           `,
-          args: [store.id, store.name, store.address || null, store.contact || null]
+          args: [store.id, store.name, store.address || null, store.contact || null, store.pricePerOrder || 0]
         });
       });
     } catch (error) {
@@ -105,7 +108,8 @@ export class DatabaseService {
         id: row.id as string,
         name: row.name as string,
         address: row.address as string || undefined,
-        contact: row.contact as string || undefined
+        contact: row.contact as string || undefined,
+        pricePerOrder: (row.price_per_order as number) || 0
       }));
     } catch (error) {
       console.error('Error getting stores:', error);
@@ -135,9 +139,9 @@ export class DatabaseService {
           sql: `
             INSERT OR REPLACE INTO deliveries (
               id, store_id, store_name, date, customer_name, phone_number, address, item_details, order_number,
-              total_deliveries, delivered, pending, bills,
+              delivery_status, order_price, total_deliveries, delivered, pending, bills,
               payment_total, payment_paid, payment_pending, payment_overdue, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
           args: [
             delivery.id,
@@ -149,6 +153,8 @@ export class DatabaseService {
             delivery.address || '',
             delivery.itemDetails || '',
             delivery.orderNumber || '',
+            delivery.deliveryStatus || 'pending pickup',
+            delivery.orderPrice || 0,
             // Use numberOfDeliveries if present; fallback to totalDeliveries for backward-compat
             (delivery as any).numberOfDeliveries ?? (delivery as any).totalDeliveries ?? 0,
             delivery.delivered,
@@ -184,6 +190,8 @@ export class DatabaseService {
         address: (row.address as string) || '',
         itemDetails: (row.item_details as string) || '',
         orderNumber: (row.order_number as string) || '',
+        deliveryStatus: (row.delivery_status as any) || 'pending pickup',
+        orderPrice: (row.order_price as number) || 0,
         // Map DB total_deliveries to both fields for compatibility
         numberOfDeliveries: (row.total_deliveries as number) ?? 0,
         totalDeliveries: (row.total_deliveries as number) ?? 0,
@@ -223,6 +231,8 @@ export class DatabaseService {
         address: (row.address as string) || '',
         itemDetails: (row.item_details as string) || '',
         orderNumber: (row.order_number as string) || '',
+        deliveryStatus: (row.delivery_status as any) || 'pending pickup',
+        orderPrice: (row.order_price as number) || 0,
         numberOfDeliveries: (row.total_deliveries as number) ?? 0,
         totalDeliveries: (row.total_deliveries as number) ?? 0,
         delivered: row.delivered as number,
