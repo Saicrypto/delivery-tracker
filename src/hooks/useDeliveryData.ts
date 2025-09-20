@@ -37,28 +37,55 @@ export const useDeliveryData = () => {
           }
         }
 
-        // Try to load from database first, then fallback to local
+        // Load data safely with proper error handling
         try {
-          console.log('🔄 Attempting to sync from database...');
-          const syncedData = await DataSyncManager.forceSyncFromDatabase();
-          const finalDailyData = DataSyncManager.ensureTodayData(syncedData.dailyData);
+          console.log('📱 Loading data from local storage...');
           
-          setDailyData(finalDailyData);
-          setStores(syncedData.stores);
-          
-          console.log('✅ Successfully loaded from database');
-        } catch (dbError) {
-          console.warn('⚠️ Database sync failed, using local storage:', dbError);
-          
-          // Fallback to local storage
+          // Load from local storage first (safe approach)
           const storedDailyData = StorageManager.getDailyData();
           const storedStores = StorageManager.getStores();
-          const finalDailyData = DataSyncManager.ensureTodayData(storedDailyData);
           
-          setDailyData(finalDailyData);
+          console.log('Loaded daily data:', storedDailyData.length, 'entries');
+          console.log('Loaded stores:', storedStores.length, 'stores');
+          
+          setDailyData(storedDailyData);
           setStores(storedStores);
           
-          console.log('📱 Loaded from local storage as fallback');
+          // Create today's data if it doesn't exist
+          const today = MobileFix.getTodayString();
+          const todayExists = storedDailyData.some(data => data.date === today);
+          
+          if (!todayExists) {
+            console.log('Creating today\'s data entry:', today);
+            const newTodayData = StorageManager.createEmptyDailyData(new Date());
+            StorageManager.updateDailyData(newTodayData);
+            setDailyData(prev => [newTodayData, ...prev]);
+          } else {
+            const todayData = storedDailyData.find(data => data.date === today);
+            console.log('Today\'s data already exists:', today, 'with', todayData?.deliveries.length || 0, 'deliveries');
+          }
+          
+          // Try to sync with database in background (non-blocking)
+          setTimeout(async () => {
+            try {
+              console.log('🔄 Background sync from database...');
+              const syncedData = await DataSyncManager.forceSyncFromDatabase();
+              const finalDailyData = DataSyncManager.ensureTodayData(syncedData.dailyData);
+              
+              setDailyData(finalDailyData);
+              setStores(syncedData.stores);
+              
+              console.log('✅ Background sync completed');
+            } catch (error) {
+              console.warn('⚠️ Background sync failed:', error);
+            }
+          }, 1000);
+          
+        } catch (error) {
+          console.error('❌ Error loading local data:', error);
+          // Set empty data to prevent crash
+          setDailyData([]);
+          setStores([]);
         }
       } catch (error) {
         console.error('Error loading data:', error);
