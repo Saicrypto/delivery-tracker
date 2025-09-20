@@ -11,6 +11,9 @@ export const InstallPrompt: React.FC<InstallPromptProps> = ({ className = '' }) 
   const [isInstalling, setIsInstalling] = useState(false);
 
   useEffect(() => {
+    // Only run in browser environment
+    if (typeof window === 'undefined') return;
+    
     // Check initial status
     const status = PWAManager.getInstallationStatus();
     setCanInstall(status.canInstall);
@@ -90,6 +93,9 @@ export const FloatingInstallButton: React.FC = () => {
   const [isVisible, setIsVisible] = useState(false);
 
   useEffect(() => {
+    // Only run in browser environment
+    if (typeof window === 'undefined') return;
+    
     // Check initial status
     const status = PWAManager.getInstallationStatus();
     setCanInstall(status.canInstall);

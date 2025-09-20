@@ -11,6 +11,11 @@ export class PWAManager {
 
   // Register service worker
   static async registerServiceWorker(): Promise<boolean> {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      console.log('⚠️ Not in browser environment, skipping service worker registration');
+      return false;
+    }
+    
     if ('serviceWorker' in navigator) {
       try {
         const registration = await navigator.serviceWorker.register('/sw.js', {
@@ -40,6 +45,11 @@ export class PWAManager {
 
   // Setup install prompt listeners
   static setupInstallPrompt(): void {
+    if (typeof window === 'undefined') {
+      console.log('⚠️ Not in browser environment, skipping install prompt setup');
+      return;
+    }
+    
     window.addEventListener('beforeinstallprompt', (e) => {
       console.log('Before install prompt triggered');
       e.preventDefault();
@@ -91,6 +101,10 @@ export class PWAManager {
 
   // Check if app is already installed
   static isInstalled(): boolean {
+    if (typeof window === 'undefined' || typeof document === 'undefined') {
+      return false;
+    }
+    
     // Check if running in standalone mode (installed PWA)
     return window.matchMedia('(display-mode: standalone)').matches ||
            (window.navigator as any).standalone === true ||
@@ -103,6 +117,14 @@ export class PWAManager {
     canInstall: boolean;
     isStandalone: boolean;
   } {
+    if (typeof window === 'undefined') {
+      return {
+        isInstalled: false,
+        canInstall: false,
+        isStandalone: false
+      };
+    }
+    
     return {
       isInstalled: this.isInstalled(),
       canInstall: this.canInstall(),

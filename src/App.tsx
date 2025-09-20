@@ -37,7 +37,10 @@ function App() {
 
   // Initialize PWA features
   useEffect(() => {
-    PWAManager.initialize().catch(console.error);
+    // Only initialize PWA in browser environment
+    if (typeof window !== 'undefined') {
+      PWAManager.initialize().catch(console.error);
+    }
   }, []);
 
   const currentData = getDataForView();
