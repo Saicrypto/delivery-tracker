@@ -52,6 +52,11 @@ export class DatabaseService {
           store_id TEXT NOT NULL,
           store_name TEXT NOT NULL,
           date TEXT NOT NULL,
+          customer_name TEXT DEFAULT '',
+          phone_number TEXT DEFAULT '',
+          address TEXT DEFAULT '',
+          item_details TEXT DEFAULT '',
+          order_number TEXT DEFAULT '',
           total_deliveries INTEGER NOT NULL DEFAULT 0,
           delivered INTEGER NOT NULL DEFAULT 0,
           pending INTEGER NOT NULL DEFAULT 0,
@@ -129,15 +134,21 @@ export class DatabaseService {
         await client.execute({
           sql: `
             INSERT OR REPLACE INTO deliveries (
-              id, store_id, store_name, date, total_deliveries, delivered, pending, bills,
+              id, store_id, store_name, date, customer_name, phone_number, address, item_details, order_number,
+              total_deliveries, delivered, pending, bills,
               payment_total, payment_paid, payment_pending, payment_overdue, notes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
           args: [
             delivery.id,
             delivery.storeId,
             delivery.storeName,
             delivery.date,
+            delivery.customerName || '',
+            delivery.phoneNumber || '',
+            delivery.address || '',
+            delivery.itemDetails || '',
+            delivery.orderNumber || '',
             // Use numberOfDeliveries if present; fallback to totalDeliveries for backward-compat
             (delivery as any).numberOfDeliveries ?? (delivery as any).totalDeliveries ?? 0,
             delivery.delivered,
@@ -167,6 +178,12 @@ export class DatabaseService {
         storeId: row.store_id as string,
         storeName: row.store_name as string,
         date: row.date as string,
+        // New simplified fields
+        customerName: (row.customer_name as string) || '',
+        phoneNumber: (row.phone_number as string) || '',
+        address: (row.address as string) || '',
+        itemDetails: (row.item_details as string) || '',
+        orderNumber: (row.order_number as string) || '',
         // Map DB total_deliveries to both fields for compatibility
         numberOfDeliveries: (row.total_deliveries as number) ?? 0,
         totalDeliveries: (row.total_deliveries as number) ?? 0,
@@ -200,6 +217,12 @@ export class DatabaseService {
         storeId: row.store_id as string,
         storeName: row.store_name as string,
         date: row.date as string,
+        // New simplified fields
+        customerName: (row.customer_name as string) || '',
+        phoneNumber: (row.phone_number as string) || '',
+        address: (row.address as string) || '',
+        itemDetails: (row.item_details as string) || '',
+        orderNumber: (row.order_number as string) || '',
         numberOfDeliveries: (row.total_deliveries as number) ?? 0,
         totalDeliveries: (row.total_deliveries as number) ?? 0,
         delivered: row.delivered as number,

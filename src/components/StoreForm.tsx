@@ -1,12 +1,20 @@
 import React, { useState } from 'react';
 import { Store, Delivery } from '../types';
-import { X, Plus } from 'lucide-react';
+import { X, Plus, FileText, Edit3 } from 'lucide-react';
 
 interface StoreFormProps {
   onSubmit: (delivery: Omit<Delivery, 'id'>) => void;
   onAddStore: (store: Omit<Store, 'id'>) => Promise<Store>;
   stores: Store[];
   onClose: () => void;
+}
+
+interface ParsedData {
+  customerName: string;
+  phoneNumber: string;
+  address: string;
+  itemDetails: string;
+  orderNumber: string;
 }
 
 export const StoreForm: React.FC<StoreFormProps> = ({
@@ -17,27 +25,93 @@ export const StoreForm: React.FC<StoreFormProps> = ({
 }) => {
   const [selectedStoreId, setSelectedStoreId] = useState('');
   const [showNewStoreForm, setShowNewStoreForm] = useState(false);
+  const [activeTab, setActiveTab] = useState<'form' | 'text'>('form');
+  
+  // New store form
   const [newStoreName, setNewStoreName] = useState('');
   const [newStoreAddress, setNewStoreAddress] = useState('');
   const [newStoreContact, setNewStoreContact] = useState('');
   
-  const [formData, setFormData] = useState({
-    totalDeliveries: 0,
-    delivered: 0,
-    pending: 0,
-    bills: 0,
-    paymentTotal: 0,
-    paymentPaid: 0,
-    paymentPending: 0,
-    paymentOverdue: 0,
-    notes: ''
+  // Simplified delivery form
+  const [formData, setFormData] = useState<ParsedData>({
+    customerName: '',
+    phoneNumber: '',
+    address: '',
+    itemDetails: '',
+    orderNumber: ''
   });
+
+  // Text parsing
+  const [rawText, setRawText] = useState('');
+
+  // Smart text parser
+  const parseCustomerData = (text: string): ParsedData => {
+    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
+    const result: ParsedData = {
+      customerName: '',
+      phoneNumber: '',
+      address: '',
+      itemDetails: '',
+      orderNumber: ''
+    };
+
+    for (const line of lines) {
+      const lowerLine = line.toLowerCase();
+      
+      // Phone number patterns
+      if (/(\+?[\d\s\-()]{8,15})/.test(line) && !result.phoneNumber) {
+        const match = line.match(/(\+?[\d\s\-()]{8,15})/);
+        if (match) result.phoneNumber = match[1].replace(/\D/g, '');
+      }
+      
+      // Order number patterns
+      else if (/(?:order|ord|#)\s*:?\s*([a-zA-Z0-9]+)/i.test(line) && !result.orderNumber) {
+        const match = line.match(/(?:order|ord|#)\s*:?\s*([a-zA-Z0-9]+)/i);
+        if (match) result.orderNumber = match[1];
+      }
+      
+      // Address patterns (longer lines with address keywords)
+      else if ((/address|addr|location|delivery/i.test(lowerLine) || line.length > 20) && !result.address && !/phone|order|name|item/i.test(lowerLine)) {
+        result.address = line.replace(/address\s*:?\s*/i, '').trim();
+      }
+      
+      // Item details (contains product/item keywords or has quantity/price indicators)
+      else if ((/item|product|qty|quantity|price|₹|rs/i.test(lowerLine) || /\d+\s*x\s*/i.test(line)) && !result.itemDetails) {
+        result.itemDetails = line.replace(/items?\s*:?\s*/i, '').trim();
+      }
+      
+      // Customer name (first non-matched line or contains name keywords)
+      else if ((/name|customer/i.test(lowerLine) || (!result.customerName && line.length < 50 && !/\d/.test(line))) && !result.customerName) {
+        result.customerName = line.replace(/(?:customer\s*)?name\s*:?\s*/i, '').trim();
+      }
+    }
+
+    // Fallback: if name is empty, use first line
+    if (!result.customerName && lines.length > 0) {
+      result.customerName = lines[0];
+    }
+
+    return result;
+  };
+
+  const handleParseText = () => {
+    if (rawText.trim()) {
+      const parsed = parseCustomerData(rawText);
+      setFormData(parsed);
+      setActiveTab('form');
+    }
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!selectedStoreId) {
-      alert('Please select a store');
+      window.alert('Please select a store');
+      return;
+    }
+
+    if (!formData.customerName || !formData.phoneNumber) {
+      window.alert('Please fill in customer name and phone number');
       return;
     }
 
@@ -48,17 +122,24 @@ export const StoreForm: React.FC<StoreFormProps> = ({
       storeId: store.id,
       storeName: store.name,
       date: new Date().toISOString().split('T')[0],
-      totalDeliveries: formData.totalDeliveries,
-      delivered: formData.delivered,
-      pending: formData.pending,
-      bills: formData.bills,
+      // New simplified fields
+      customerName: formData.customerName,
+      phoneNumber: formData.phoneNumber,
+      address: formData.address,
+      itemDetails: formData.itemDetails,
+      orderNumber: formData.orderNumber,
+      // Legacy fields for backward compatibility (set defaults)
+      totalDeliveries: 1,
+      delivered: 1,
+      pending: 0,
+      bills: 1,
       paymentStatus: {
-        total: formData.paymentTotal,
-        paid: formData.paymentPaid,
-        pending: formData.paymentPending,
-        overdue: formData.paymentOverdue
+        total: 0,
+        paid: 0,
+        pending: 0,
+        overdue: 0
       },
-      notes: formData.notes
+      notes: `Customer: ${formData.customerName}\nPhone: ${formData.phoneNumber}\nAddress: ${formData.address}\nItems: ${formData.itemDetails}\nOrder: ${formData.orderNumber}`.trim()
     };
 
     onSubmit(delivery);
@@ -97,6 +178,34 @@ export const StoreForm: React.FC<StoreFormProps> = ({
           >
             <X className="h-6 w-6" />
           </button>
+        </div>
+
+        {/* Tab Navigation */}
+        <div className="border-b border-gray-200">
+          <nav className="flex">
+            <button
+              onClick={() => setActiveTab('form')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'form'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <Edit3 className="h-4 w-4 inline mr-2" />
+              Manual Form
+            </button>
+            <button
+              onClick={() => setActiveTab('text')}
+              className={`px-6 py-3 text-sm font-medium border-b-2 transition-colors ${
+                activeTab === 'text'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              <FileText className="h-4 w-4 inline mr-2" />
+              Paste & Parse
+            </button>
+          </nav>
         </div>
 
         <form onSubmit={handleSubmit} className="p-6 space-y-6">
@@ -176,140 +285,115 @@ export const StoreForm: React.FC<StoreFormProps> = ({
             </div>
           )}
 
-          {/* Delivery Information */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Total Deliveries
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={formData.totalDeliveries}
-                onChange={(e) => setFormData({ ...formData, totalDeliveries: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
+          {/* Text Parser Tab */}
+          {activeTab === 'text' && (
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Paste Customer Data
+                </label>
+                <textarea
+                  value={rawText}
+                  onChange={(e) => setRawText(e.target.value)}
+                  rows={8}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder={`Paste customer information here. For example:
+John Doe
++91 9876543210
+123 Main Street, City
+Order: ORD-001
+2x Pizza, 1x Coke - ₹450`}
+                />
+              </div>
+              <button
+                type="button"
+                onClick={handleParseText}
+                className="w-full px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 transition-colors"
+              >
+                Parse & Fill Form
+              </button>
+              <div className="text-sm text-gray-600">
+                <p className="font-medium mb-1">Supported formats:</p>
+                <ul className="list-disc list-inside space-y-1">
+                  <li>Customer name (first line or with "Name:" prefix)</li>
+                  <li>Phone number (any line with 8-15 digits)</li>
+                  <li>Address (line with "address" or longer text)</li>
+                  <li>Order number (with "Order:", "Ord:" or "#" prefix)</li>
+                  <li>Items (with quantities, prices, or "item" keyword)</li>
+                </ul>
+              </div>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Delivered
-              </label>
-              <input
-                type="number"
-                min="0"
-                max={formData.totalDeliveries}
-                value={formData.delivered}
-                onChange={(e) => setFormData({ ...formData, delivered: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Pending
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={formData.pending}
-                onChange={(e) => setFormData({ ...formData, pending: parseInt(e.target.value) || 0 })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                required
-              />
-            </div>
-          </div>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Bills Count
-            </label>
-            <input
-              type="number"
-              min="0"
-              value={formData.bills}
-              onChange={(e) => setFormData({ ...formData, bills: parseInt(e.target.value) || 0 })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              required
-            />
-          </div>
+          {/* Manual Form Tab */}
+          {activeTab === 'form' && (
+            <div className="space-y-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Customer Name *
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.customerName}
+                    onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Phone Number *
+                  </label>
+                  <input
+                    type="tel"
+                    value={formData.phoneNumber}
+                    onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    required
+                  />
+                </div>
+              </div>
 
-          {/* Payment Information */}
-          <div>
-            <h3 className="text-lg font-medium text-gray-900 mb-3">Payment Status</h3>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Total Amount (₹)
+                  Delivery Address
                 </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.paymentTotal}
-                  onChange={(e) => setFormData({ ...formData, paymentTotal: parseFloat(e.target.value) || 0 })}
+                <textarea
+                  value={formData.address}
+                  onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                  rows={2}
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
                 />
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Paid Amount (₹)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  max={formData.paymentTotal}
-                  value={formData.paymentPaid}
-                  onChange={(e) => setFormData({ ...formData, paymentPaid: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Pending Amount (₹)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.paymentPending}
-                  onChange={(e) => setFormData({ ...formData, paymentPending: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Overdue Amount (₹)
-                </label>
-                <input
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  value={formData.paymentOverdue}
-                  onChange={(e) => setFormData({ ...formData, paymentOverdue: parseFloat(e.target.value) || 0 })}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Order Number
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.orderNumber}
+                    onChange={(e) => setFormData({ ...formData, orderNumber: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Item Details
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.itemDetails}
+                    onChange={(e) => setFormData({ ...formData, itemDetails: e.target.value })}
+                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="e.g., 2x Pizza, 1x Coke"
+                  />
+                </div>
               </div>
             </div>
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Notes (Optional)
-            </label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={3}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Any additional notes..."
-            />
-          </div>
+          )}
 
           <div className="flex justify-end space-x-3 pt-4 border-t">
             <button

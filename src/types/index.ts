@@ -10,8 +10,13 @@ export interface Delivery {
   storeId: string;
   storeName: string;
   date: string; // ISO date string
-  // Some parts of the app use numberOfDeliveries; others use totalDeliveries.
-  // Keep both for compatibility across devices and data sources.
+  // Simplified fields for new form
+  customerName: string;
+  phoneNumber: string;
+  address: string;
+  itemDetails: string;
+  orderNumber: string;
+  // Legacy fields for backward compatibility
   totalDeliveries: number;
   numberOfDeliveries?: number;
   delivered: number;

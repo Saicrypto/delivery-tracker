@@ -83,6 +83,13 @@ export class DatabaseTester {
           storeId: testStore.id,
           storeName: testStore.name,
           date: new Date().toISOString().split('T')[0],
+          // New simplified fields
+          customerName: 'Test Customer',
+          phoneNumber: '9876543210',
+          address: '123 Test Street',
+          itemDetails: '2x Pizza, 1x Coke',
+          orderNumber: 'ORD-001',
+          // Legacy fields
           totalDeliveries: 5,
           delivered: 3,
           pending: 2,

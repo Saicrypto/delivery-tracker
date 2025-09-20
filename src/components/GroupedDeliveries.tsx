@@ -157,13 +157,21 @@ export const GroupedDeliveries: React.FC<GroupedDeliveriesProps> = ({
                     </div>
 
                     <div className="flex items-center space-x-4">
-                      {delivery.notes && (
-                        <div className="max-w-xs">
-                          <p className="text-xs text-gray-600 truncate" title={delivery.notes}>
-                            {delivery.notes}
-                          </p>
-                        </div>
-                      )}
+                      {/* Customer Info */}
+                      <div className="flex items-center space-x-2">
+                        {delivery.customerName && (
+                          <div className="max-w-xs">
+                            <p className="text-xs text-gray-600 truncate" title={`Customer: ${delivery.customerName}`}>
+                              {delivery.customerName}
+                            </p>
+                          </div>
+                        )}
+                        {delivery.orderNumber && (
+                          <div className="text-xs text-gray-500 font-mono">
+                            #{delivery.orderNumber}
+                          </div>
+                        )}
+                      </div>
 
                       <div className="flex space-x-1">
                         {onEdit && (
@@ -189,12 +197,24 @@ export const GroupedDeliveries: React.FC<GroupedDeliveriesProps> = ({
               </div>
             )}
 
-            {/* Single order notes */}
-            {!hasMultipleOrders && group.deliveries[0].notes && (
-              <div className="border-t border-gray-100 px-4 pb-3 pt-2">
-                <p className="text-xs text-gray-600 pl-8">
-                  {group.deliveries[0].notes}
-                </p>
+            {/* Single order customer details */}
+            {!hasMultipleOrders && (group.deliveries[0].customerName || group.deliveries[0].itemDetails || group.deliveries[0].address) && (
+              <div className="border-t border-gray-100 px-4 pb-3 pt-2 pl-8">
+                {group.deliveries[0].customerName && (
+                  <p className="text-xs text-gray-600">
+                    <span className="font-medium">Customer:</span> {group.deliveries[0].customerName}
+                  </p>
+                )}
+                {group.deliveries[0].itemDetails && (
+                  <p className="text-xs text-gray-600">
+                    <span className="font-medium">Items:</span> {group.deliveries[0].itemDetails}
+                  </p>
+                )}
+                {group.deliveries[0].address && (
+                  <p className="text-xs text-gray-600">
+                    <span className="font-medium">Address:</span> {group.deliveries[0].address}
+                  </p>
+                )}
               </div>
             )}
           </div>
