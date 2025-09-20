@@ -45,3 +45,17 @@ root.render(
   </React.StrictMode>
 );
 
+// Register service worker (in production only)
+if ('serviceWorker' in navigator && process.env.NODE_ENV === 'production') {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker
+      .register('/sw.js')
+      .then((registration) => {
+        console.log('Service worker registered:', registration.scope);
+      })
+      .catch((error) => {
+        console.warn('Service worker registration failed:', error);
+      });
+  });
+}
+
