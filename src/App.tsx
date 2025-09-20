@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, BarChart3 } from 'lucide-react';
 import { Header } from './components/Header';
 import { SummaryDashboard } from './components/SummaryDashboard';
@@ -8,7 +8,9 @@ import { ChartsSection } from './components/ChartsSection';
 import { DebugInfo } from './components/DebugInfo';
 import { DataManager } from './components/DataManager';
 import { DatabaseInspector } from './components/DatabaseInspector';
+import { InstallPrompt, FloatingInstallButton } from './components/InstallPrompt';
 import { useDeliveryData } from './hooks/useDeliveryData';
+import { PWAManager } from './utils/pwa';
 import './App.css';
 
 function App() {
@@ -32,6 +34,11 @@ function App() {
   const [showDebug, setShowDebug] = useState(false);
   const [showDataManager, setShowDataManager] = useState(false);
   const [showDatabaseInspector, setShowDatabaseInspector] = useState(false);
+
+  // Initialize PWA features
+  useEffect(() => {
+    PWAManager.initialize().catch(console.error);
+  }, []);
 
   const currentData = getDataForView();
   const todayData = getTodayData();
@@ -57,6 +64,9 @@ function App() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        {/* Install App Prompt */}
+        <InstallPrompt className="mb-6" />
+        
         {/* Action Buttons */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex space-x-3">
@@ -204,6 +214,9 @@ function App() {
             onRefreshData={refreshData}
             onClearAndResync={clearAndResync}
           />
+
+          {/* Floating Install Button */}
+          <FloatingInstallButton />
     </div>
   );
 }
