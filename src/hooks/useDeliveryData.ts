@@ -39,6 +39,29 @@ export const useDeliveryData = () => {
           }
           
           setLoading(false);
+
+          // Non-blocking DB init + background sync in production
+          setTimeout(async () => {
+            try {
+              console.log('🌐 Prod: initializing DB and syncing in background...');
+              await HybridStorageManager.initialize();
+              const statusProd = HybridStorageManager.getConnectionStatus();
+              setIsOnline(statusProd.isOnline);
+
+              if (statusProd.isOnline) {
+                const syncedData = await DataSyncManager.forceSyncFromDatabase();
+                const finalDailyData = DataSyncManager.ensureTodayData(syncedData.dailyData);
+                setDailyData(finalDailyData);
+                setStores(syncedData.stores);
+                console.log('✅ Prod background sync completed');
+              } else {
+                console.warn('⚠️ Prod: DB offline, using local-only data');
+              }
+            } catch (err) {
+              console.warn('⚠️ Prod background init/sync failed:', err);
+            }
+          }, 800);
+
           return;
         }
 

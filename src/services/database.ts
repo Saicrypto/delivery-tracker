@@ -8,6 +8,29 @@ const client = createClient({
 });
 
 export class DatabaseService {
+  // Wrap DB operations and self-heal on missing schema
+  private static async withSelfHealing<T>(operation: () => Promise<T>): Promise<T> {
+    try {
+      return await operation();
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      if (
+        message.includes('no such table') ||
+        message.includes('no such column') ||
+        message.includes('no such database')
+      ) {
+        console.warn('Database schema missing. Re-initializing tables and retrying operation...');
+        try {
+          await this.initializeTables();
+          return await operation();
+        } catch (retryError) {
+          console.error('Retry after schema initialization failed:', retryError);
+          throw retryError;
+        }
+      }
+      throw error;
+    }
+  }
   // Initialize database tables
   static async initializeTables() {
     try {
@@ -53,12 +76,14 @@ export class DatabaseService {
   // Store operations
   static async saveStore(store: Store): Promise<void> {
     try {
-      await client.execute({
-        sql: `
-          INSERT OR REPLACE INTO stores (id, name, address, contact)
-          VALUES (?, ?, ?, ?)
-        `,
-        args: [store.id, store.name, store.address || null, store.contact || null]
+      await this.withSelfHealing(async () => {
+        await client.execute({
+          sql: `
+            INSERT OR REPLACE INTO stores (id, name, address, contact)
+            VALUES (?, ?, ?, ?)
+          `,
+          args: [store.id, store.name, store.address || null, store.contact || null]
+        });
       });
     } catch (error) {
       console.error('Error saving store:', error);
@@ -68,7 +93,9 @@ export class DatabaseService {
 
   static async getStores(): Promise<Store[]> {
     try {
-      const result = await client.execute('SELECT * FROM stores ORDER BY name');
+      const result = await this.withSelfHealing(async () => {
+        return await client.execute('SELECT * FROM stores ORDER BY name');
+      });
       return result.rows.map(row => ({
         id: row.id as string,
         name: row.name as string,
@@ -83,9 +110,11 @@ export class DatabaseService {
 
   static async deleteStore(storeId: string): Promise<void> {
     try {
-      await client.execute({
-        sql: 'DELETE FROM stores WHERE id = ?',
-        args: [storeId]
+      await this.withSelfHealing(async () => {
+        await client.execute({
+          sql: 'DELETE FROM stores WHERE id = ?',
+          args: [storeId]
+        });
       });
     } catch (error) {
       console.error('Error deleting store:', error);
@@ -96,29 +125,31 @@ export class DatabaseService {
   // Delivery operations
   static async saveDelivery(delivery: Delivery): Promise<void> {
     try {
-      await client.execute({
-        sql: `
-          INSERT OR REPLACE INTO deliveries (
-            id, store_id, store_name, date, total_deliveries, delivered, pending, bills,
-            payment_total, payment_paid, payment_pending, payment_overdue, notes
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        `,
-        args: [
-          delivery.id,
-          delivery.storeId,
-          delivery.storeName,
-          delivery.date,
-          // Use numberOfDeliveries if present; fallback to totalDeliveries for backward-compat
-          (delivery as any).numberOfDeliveries ?? (delivery as any).totalDeliveries ?? 0,
-          delivery.delivered,
-          delivery.pending,
-          delivery.bills,
-          delivery.paymentStatus.total,
-          delivery.paymentStatus.paid,
-          delivery.paymentStatus.pending,
-          delivery.paymentStatus.overdue,
-          delivery.notes || null
-        ]
+      await this.withSelfHealing(async () => {
+        await client.execute({
+          sql: `
+            INSERT OR REPLACE INTO deliveries (
+              id, store_id, store_name, date, total_deliveries, delivered, pending, bills,
+              payment_total, payment_paid, payment_pending, payment_overdue, notes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          `,
+          args: [
+            delivery.id,
+            delivery.storeId,
+            delivery.storeName,
+            delivery.date,
+            // Use numberOfDeliveries if present; fallback to totalDeliveries for backward-compat
+            (delivery as any).numberOfDeliveries ?? (delivery as any).totalDeliveries ?? 0,
+            delivery.delivered,
+            delivery.pending,
+            delivery.bills,
+            delivery.paymentStatus.total,
+            delivery.paymentStatus.paid,
+            delivery.paymentStatus.pending,
+            delivery.paymentStatus.overdue,
+            delivery.notes || null
+          ]
+        });
       });
     } catch (error) {
       console.error('Error saving delivery:', error);
@@ -128,7 +159,9 @@ export class DatabaseService {
 
   static async getDeliveries(): Promise<Delivery[]> {
     try {
-      const result = await client.execute('SELECT * FROM deliveries ORDER BY date DESC');
+      const result = await this.withSelfHealing(async () => {
+        return await client.execute('SELECT * FROM deliveries ORDER BY date DESC');
+      });
       return result.rows.map(row => ({
         id: row.id as string,
         storeId: row.store_id as string,
@@ -156,9 +189,11 @@ export class DatabaseService {
 
   static async getDeliveriesByDate(date: string): Promise<Delivery[]> {
     try {
-      const result = await client.execute({
-        sql: 'SELECT * FROM deliveries WHERE date = ? ORDER BY created_at DESC',
-        args: [date]
+      const result = await this.withSelfHealing(async () => {
+        return await client.execute({
+          sql: 'SELECT * FROM deliveries WHERE date = ? ORDER BY created_at DESC',
+          args: [date]
+        });
       });
       return result.rows.map(row => ({
         id: row.id as string,
@@ -186,9 +221,11 @@ export class DatabaseService {
 
   static async deleteDelivery(deliveryId: string): Promise<void> {
     try {
-      await client.execute({
-        sql: 'DELETE FROM deliveries WHERE id = ?',
-        args: [deliveryId]
+      await this.withSelfHealing(async () => {
+        await client.execute({
+          sql: 'DELETE FROM deliveries WHERE id = ?',
+          args: [deliveryId]
+        });
       });
     } catch (error) {
       console.error('Error deleting delivery:', error);
