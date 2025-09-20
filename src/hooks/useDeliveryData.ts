@@ -4,6 +4,7 @@ import { StorageManager } from '../utils/storage';
 import { HybridStorageManager } from '../utils/hybridStorage';
 import { URLDataSharing } from '../utils/cloudStorage';
 import { DataSyncManager } from '../utils/dataSync';
+import { DeploymentFix } from '../utils/deploymentFix';
 import { format } from 'date-fns';
 import { MobileFix } from '../utils/mobileFix';
 
@@ -19,7 +20,29 @@ export const useDeliveryData = () => {
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Initialize database connection
+        // Production-safe initialization
+        if (DeploymentFix.isVercel() || DeploymentFix.isProduction()) {
+          console.log('🌐 Production environment detected, using safe loading...');
+          
+          // Use safe data loading for production
+          const safeData = await DeploymentFix.safeDataLoad();
+          setDailyData(safeData.dailyData);
+          setStores(safeData.stores);
+          
+          // Ensure today's data exists
+          const today = MobileFix.getTodayString();
+          const todayExists = safeData.dailyData.some((data: any) => data.date === today);
+          
+          if (!todayExists) {
+            const newTodayData = StorageManager.createEmptyDailyData(new Date());
+            setDailyData(prev => [newTodayData, ...prev]);
+          }
+          
+          setLoading(false);
+          return;
+        }
+
+        // Development environment - full initialization
         await HybridStorageManager.initialize();
         const status = HybridStorageManager.getConnectionStatus();
         setIsOnline(status.isOnline);
