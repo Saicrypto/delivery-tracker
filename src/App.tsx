@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, BarChart3 } from 'lucide-react';
 import { Header } from './components/Header';
 import { SummaryDashboard } from './components/SummaryDashboard';
@@ -10,6 +10,7 @@ import { DebugInfo } from './components/DebugInfo';
 import { DataManager } from './components/DataManager';
 import { DatabaseInspector } from './components/DatabaseInspector';
 import { useDeliveryData } from './hooks/useDeliveryData';
+import { CleanupService } from './services/cleanupService';
 import './App.css';
 
 function App() {
@@ -35,6 +36,11 @@ function App() {
   const [showDataManager, setShowDataManager] = useState(false);
   const [showDatabaseInspector, setShowDatabaseInspector] = useState(false);
 
+  // Initialize cleanup monitoring on app start
+  useEffect(() => {
+    CleanupService.initializeCleanupMonitoring();
+  }, []);
+
   const currentData = getDataForView();
   const todayData = getTodayData();
 
@@ -56,6 +62,7 @@ function App() {
         onViewModeChange={setViewMode}
         currentDate={currentDate}
         onDataManagerOpen={() => setShowDataManager(true)}
+        onDataRefresh={refreshData}
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
