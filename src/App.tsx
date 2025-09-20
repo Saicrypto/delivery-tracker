@@ -33,13 +33,6 @@ function App() {
   const [showDataManager, setShowDataManager] = useState(false);
   const [showDatabaseInspector, setShowDatabaseInspector] = useState(false);
 
-  // Temporarily disabled PWA features to fix blank page
-  // useEffect(() => {
-  //   if (typeof window !== 'undefined') {
-  //     PWAManager.initialize().catch(console.error);
-  //   }
-  // }, []);
-
   const currentData = getDataForView();
   const todayData = getTodayData();
 
@@ -64,8 +57,6 @@ function App() {
       />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        {/* Temporarily removed Install App Prompt */}
-        
         {/* Action Buttons */}
         <div className="flex justify-between items-center mb-6">
           <div className="flex space-x-3">
@@ -213,8 +204,6 @@ function App() {
             onRefreshData={refreshData}
             onClearAndResync={clearAndResync}
           />
-
-          {/* Temporarily removed Floating Install Button */}
     </div>
   );
 }

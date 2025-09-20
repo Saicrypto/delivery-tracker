@@ -3,7 +3,7 @@ import { DailyData, Store, Delivery, ViewMode } from '../types';
 import { StorageManager } from '../utils/storage';
 import { HybridStorageManager } from '../utils/hybridStorage';
 import { URLDataSharing } from '../utils/cloudStorage';
-// import { DataSyncManager } from '../utils/dataSync';
+import { DataSyncManager } from '../utils/dataSync';
 import { format } from 'date-fns';
 import { MobileFix } from '../utils/mobileFix';
 
@@ -37,35 +37,28 @@ export const useDeliveryData = () => {
           }
         }
 
-        // Simplified data loading to fix blank page issue
+        // Try to load from database first, then fallback to local
         try {
-          console.log('📱 Loading data from local storage...');
+          console.log('🔄 Attempting to sync from database...');
+          const syncedData = await DataSyncManager.forceSyncFromDatabase();
+          const finalDailyData = DataSyncManager.ensureTodayData(syncedData.dailyData);
           
-          // Load from local storage only for now
+          setDailyData(finalDailyData);
+          setStores(syncedData.stores);
+          
+          console.log('✅ Successfully loaded from database');
+        } catch (dbError) {
+          console.warn('⚠️ Database sync failed, using local storage:', dbError);
+          
+          // Fallback to local storage
           const storedDailyData = StorageManager.getDailyData();
           const storedStores = StorageManager.getStores();
+          const finalDailyData = DataSyncManager.ensureTodayData(storedDailyData);
           
-          // Simple today check without complex sync
-          const today = new Date().toISOString().split('T')[0];
-          const todayExists = storedDailyData.some(data => data.date === today);
-          
-          if (!todayExists) {
-            console.log('Creating today entry:', today);
-            const newTodayData = StorageManager.createEmptyDailyData(new Date());
-            const updatedData = [newTodayData, ...storedDailyData];
-            StorageManager.saveDailyData(updatedData);
-            setDailyData(updatedData);
-          } else {
-            setDailyData(storedDailyData);
-          }
-          
+          setDailyData(finalDailyData);
           setStores(storedStores);
-          console.log('✅ Data loaded successfully');
-        } catch (error) {
-          console.error('❌ Error loading data:', error);
-          // Set empty data to prevent crash
-          setDailyData([]);
-          setStores([]);
+          
+          console.log('📱 Loaded from local storage as fallback');
         }
       } catch (error) {
         console.error('Error loading data:', error);
@@ -242,13 +235,13 @@ export const useDeliveryData = () => {
   }, [viewMode, dailyData, getTodayData]);
 
   const refreshData = useCallback(async () => {
-    console.log('🔄 Refreshing data from local storage...');
+    console.log('🔄 Force refreshing data from database...');
     try {
-      const storedDailyData = StorageManager.getDailyData();
-      const storedStores = StorageManager.getStores();
+      const syncedData = await DataSyncManager.forceSyncFromDatabase();
+      const finalDailyData = DataSyncManager.ensureTodayData(syncedData.dailyData);
       
-      setDailyData(storedDailyData);
-      setStores(storedStores);
+      setDailyData(finalDailyData);
+      setStores(syncedData.stores);
       
       console.log('✅ Data refreshed successfully');
     } catch (error) {
@@ -258,25 +251,17 @@ export const useDeliveryData = () => {
   }, []);
 
   const clearAndResync = useCallback(async () => {
-    console.log('🗑️ Clearing all data...');
+    console.log('🗑️ Clearing all data and resyncing...');
     try {
-      // Clear local storage
-      if (typeof window !== 'undefined' && window.localStorage) {
-        const keys = Object.keys(localStorage);
-        keys.forEach(key => {
-          if (key.includes('delivery-tracker')) {
-            localStorage.removeItem(key);
-          }
-        });
-      }
+      const syncedData = await DataSyncManager.clearAndResync();
+      const finalDailyData = DataSyncManager.ensureTodayData(syncedData.dailyData);
       
-      // Reset to empty state
-      setDailyData([]);
-      setStores([]);
+      setDailyData(finalDailyData);
+      setStores(syncedData.stores);
       
-      console.log('✅ Data cleared successfully');
+      console.log('✅ Clear and resync completed');
     } catch (error) {
-      console.error('❌ Error clearing data:', error);
+      console.error('❌ Clear and resync failed:', error);
       throw error;
     }
   }, []);
