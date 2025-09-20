@@ -90,7 +90,7 @@ export class DatabaseTester {
           address: '123 Test Street',
           itemDetails: '2x Pizza, 1x Coke',
           orderNumber: 'ORD-001',
-          deliveryStatus: 'pending pickup' as any,
+          deliveryStatus: 'pending pickup' as const,
           orderPrice: 450,
           // Legacy fields
           totalDeliveries: 5,
