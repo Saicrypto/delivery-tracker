@@ -71,7 +71,7 @@ export const StoreForm: React.FC<StoreFormProps> = ({
     }
   };
 
-  // Smart text parser with improved address detection
+  // Smart text parser with comprehensive address detection
   const parseCustomerData = (text: string): ParsedData => {
     const lines = text.split('\n').map(line => line.trim()).filter(line => line);
     const result: ParsedData = {
@@ -84,20 +84,20 @@ export const StoreForm: React.FC<StoreFormProps> = ({
       orderPrice: 0
     };
 
+    const identifiedLines = new Set<string>();
     const addressParts: string[] = [];
-    let nameFound = false;
-    let phoneFound = false;
 
+    // Step 1: Identify specific fields first
     for (let i = 0; i < lines.length; i++) {
       const line = lines[i];
       const lowerLine = line.toLowerCase();
       
-      // Phone number patterns (priority: extract first)
-      if (/(\+?[\d\s\-()]{8,15})/.test(line) && !phoneFound) {
+      // Phone number patterns (highest priority)
+      if (/(\+?[\d\s\-()]{8,15})/.test(line) && !result.phoneNumber) {
         const match = line.match(/(\+?[\d\s\-()]{8,15})/);
         if (match) {
           result.phoneNumber = match[1].replace(/\D/g, '');
-          phoneFound = true;
+          identifiedLines.add(line);
           continue;
         }
       }
@@ -107,13 +107,15 @@ export const StoreForm: React.FC<StoreFormProps> = ({
         const match = line.match(/(?:order|ord|#)\s*:?\s*([a-zA-Z0-9]+)/i);
         if (match) {
           result.orderNumber = match[1];
+          identifiedLines.add(line);
           continue;
         }
       }
       
-      // Item details (contains product/item keywords or has quantity/price indicators)
-      if ((/item|product|qty|quantity|price|₹|rs/i.test(lowerLine) || /\d+\s*x\s*/i.test(line)) && !result.itemDetails) {
+      // Item details with explicit keywords or quantity/price patterns
+      if ((/(?:item|product|qty|quantity|price|₹|rs)(?:\s*:|\s)/i.test(lowerLine) || /\d+\s*x\s*/i.test(line)) && !result.itemDetails) {
         result.itemDetails = line.replace(/items?\s*:?\s*/i, '').trim();
+        identifiedLines.add(line);
         
         // Try to extract price from item details
         const priceMatch = line.match(/₹\s*(\d+(?:\.\d{2})?)|rs\s*(\d+(?:\.\d{2})?)|price\s*:?\s*(\d+(?:\.\d{2})?)/i);
@@ -123,59 +125,54 @@ export const StoreForm: React.FC<StoreFormProps> = ({
         continue;
       }
       
-      // Customer name (first line or contains name keywords)
-      if (!nameFound && (i === 0 || /name|customer/i.test(lowerLine))) {
+      // Customer name - first line OR explicit name field
+      if (!result.customerName && (i === 0 || /(?:name|customer)\s*:/i.test(lowerLine))) {
         result.customerName = line.replace(/(?:customer\s*)?name\s*:?\s*/i, '').trim();
-        nameFound = true;
+        identifiedLines.add(line);
         continue;
-      }
-      
-      // Address detection - improved logic
-      // Skip if it's already identified as something else
-      if (phoneFound && line.includes(result.phoneNumber)) continue;
-      if (result.orderNumber && line.includes(result.orderNumber)) continue;
-      if (result.itemDetails && line === result.itemDetails) continue;
-      if (nameFound && line === result.customerName) continue;
-      
-      // Collect potential address parts
-      // Address indicators: explicit keywords or longer descriptive text
-      if (
-        /address|addr|location|delivery|street|road|area|colony|sector|block|flat|apartment|house|building/i.test(lowerLine) ||
-        line.length > 15 || // Longer lines likely to be addresses
-        /\d+.*(?:st|nd|rd|th|street|road|lane|avenue|colony|sector|block)/i.test(line) || // Street patterns
-        /(?:near|opp|opposite|behind|front|beside)/i.test(lowerLine) // Location indicators
-      ) {
-        // Clean up address keywords
-        const cleanedLine = line.replace(/(?:address|addr|location|delivery)\s*:?\s*/i, '').trim();
-        if (cleanedLine.length > 0) {
-          addressParts.push(cleanedLine);
-        }
       }
     }
 
-    // Combine address parts
+    // Step 2: Everything else becomes address (except very short non-descriptive lines)
+    for (const line of lines) {
+      // Skip if already identified
+      if (identifiedLines.has(line)) continue;
+      
+      // Skip if it's just the extracted phone number
+      if (result.phoneNumber && line.includes(result.phoneNumber)) continue;
+      
+      // Skip if it's just the extracted order number
+      if (result.orderNumber && line.includes(result.orderNumber)) continue;
+      
+      // Skip very short lines that are likely not address (unless they contain numbers/places)
+      if (line.length < 3 && !/\d/.test(line)) continue;
+      
+      // Clean up any explicit address prefixes
+      let cleanedLine = line.replace(/(?:address|addr|location|delivery)\s*:?\s*/i, '').trim();
+      
+      // Include this line as part of address if it has any meaningful content
+      if (cleanedLine.length > 0) {
+        addressParts.push(cleanedLine);
+      }
+    }
+
+    // Combine all address parts
     if (addressParts.length > 0) {
       result.address = addressParts.join(', ');
     }
 
-    // Fallback: if name is empty, use first line
+    // Fallback: if name is still empty, use first non-phone line
     if (!result.customerName && lines.length > 0) {
-      result.customerName = lines[0];
-    }
-
-    // If no explicit address found but we have unidentified lines, use them as address
-    if (!result.address && lines.length > 1) {
-      const unidentifiedLines = lines.filter(line => {
-        const lowerLine = line.toLowerCase();
-        return line !== result.customerName &&
-               !line.includes(result.phoneNumber) &&
-               !line.includes(result.orderNumber) &&
-               line !== result.itemDetails &&
-               !/(?:order|ord|#|item|product|qty|quantity|price|₹|rs)/i.test(lowerLine);
-      });
-      
-      if (unidentifiedLines.length > 0) {
-        result.address = unidentifiedLines.join(', ');
+      const firstNonPhoneLine = lines.find(line => 
+        !identifiedLines.has(line) && 
+        !(result.phoneNumber && line.includes(result.phoneNumber))
+      );
+      if (firstNonPhoneLine) {
+        result.customerName = firstNonPhoneLine;
+        // Remove this from address if it was included
+        result.address = result.address.replace(firstNonPhoneLine, '').replace(/^,\s*|,\s*$/, '').replace(/,\s*,/g, ',').trim();
+      } else {
+        result.customerName = lines[0];
       }
     }
 
