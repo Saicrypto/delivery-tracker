@@ -14,7 +14,7 @@ export const useDeliveryData = () => {
   const [currentDate] = useState(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [loading, setLoading] = useState(true);
-  const [, setIsOnline] = useState(false);
+  const [isOnline, setIsOnline] = useState(false);
 
   // Load initial data
   useEffect(() => {
@@ -147,6 +147,157 @@ export const useDeliveryData = () => {
 
     loadData();
   }, []);
+
+  // Periodic sync for cross-device updates
+  useEffect(() => {
+    let syncInterval: NodeJS.Timeout | null = null;
+    
+    const setupPeriodicSync = async () => {
+      // Only setup periodic sync if we're online and have data
+      if (!isOnline || dailyData.length === 0) {
+        return;
+      }
+
+      console.log('🔄 Setting up periodic cross-device sync...');
+      
+      // Sync every 30 seconds to catch cross-device changes
+      syncInterval = setInterval(async () => {
+        try {
+          const today = format(new Date(), 'yyyy-MM-dd');
+          
+          // Get current deliveries from database
+          const { DatabaseService } = await import('../services/database');
+          const dbDeliveries = await DatabaseService.getDeliveriesByDate(today);
+          
+          // Get current local deliveries
+          const currentTodayData = dailyData.find(d => d.date === today);
+          const localDeliveries = currentTodayData?.deliveries || [];
+          
+          // Check if there are differences
+          const dbIds = new Set(dbDeliveries.map(d => d.id));
+          const localIds = new Set(localDeliveries.map(d => d.id));
+          
+          const hasChanges = dbIds.size !== localIds.size || 
+                           Array.from(dbIds).some(id => !localIds.has(id)) ||
+                           Array.from(localIds).some(id => !dbIds.has(id));
+          
+          if (hasChanges) {
+            console.log('📊 Cross-device changes detected, syncing...');
+            console.log(`Database: ${dbDeliveries.length} deliveries, Local: ${localDeliveries.length} deliveries`);
+            
+            // Update today's data with database state
+            const updatedDailyData = dailyData.map(dayData => {
+              if (dayData.date === today) {
+                // Merge: prioritize database for deletions, keep new local ones
+                const mergedDeliveries = [
+                  ...dbDeliveries, // Database deliveries (source of truth)
+                  ...localDeliveries.filter(local => !dbIds.has(local.id)) // New local deliveries not in DB
+                ];
+                
+                const updatedSummary = StorageManager.calculateSummary(mergedDeliveries);
+                
+                // Update local storage too
+                const updatedTodayData = {
+                  ...dayData,
+                  deliveries: mergedDeliveries,
+                  summary: updatedSummary
+                };
+                StorageManager.updateDailyData(updatedTodayData);
+                
+                return updatedTodayData;
+              }
+              return dayData;
+            });
+            
+            setDailyData(updatedDailyData);
+            console.log('✅ Cross-device sync completed');
+          } else {
+            console.log('🔄 No cross-device changes detected');
+          }
+        } catch (error) {
+          console.error('❌ Periodic sync failed:', error);
+        }
+      }, 30000); // 30 seconds
+    };
+
+    // Start periodic sync after a short delay
+    const timer = setTimeout(() => {
+      setupPeriodicSync();
+    }, 10000); // Wait 10 seconds after initial load
+
+    return () => {
+      if (syncInterval) {
+        console.log('🔄 Cleaning up periodic sync');
+        clearInterval(syncInterval);
+      }
+      clearTimeout(timer);
+    };
+  }, [isOnline, dailyData]);
+
+  // Immediate sync when window gets focus (for better cross-device sync)
+  useEffect(() => {
+    const handleWindowFocus = async () => {
+      if (!isOnline || dailyData.length === 0) return;
+      
+      try {
+        console.log('🔄 Window focused, checking for cross-device changes...');
+        const today = format(new Date(), 'yyyy-MM-dd');
+        
+        // Get current deliveries from database
+        const { DatabaseService } = await import('../services/database');
+        const dbDeliveries = await DatabaseService.getDeliveriesByDate(today);
+        
+        // Get current local deliveries
+        const currentTodayData = dailyData.find(d => d.date === today);
+        const localDeliveries = currentTodayData?.deliveries || [];
+        
+        // Check if there are differences
+        const dbIds = new Set(dbDeliveries.map(d => d.id));
+        const localIds = new Set(localDeliveries.map(d => d.id));
+        
+        const hasChanges = dbIds.size !== localIds.size || 
+                         Array.from(dbIds).some(id => !localIds.has(id)) ||
+                         Array.from(localIds).some(id => !dbIds.has(id));
+        
+        if (hasChanges) {
+          console.log('📊 Focus sync: Cross-device changes detected!');
+          console.log(`Database: ${dbDeliveries.length} deliveries, Local: ${localDeliveries.length} deliveries`);
+          
+          // Update today's data with database state
+          const updatedDailyData = dailyData.map(dayData => {
+            if (dayData.date === today) {
+              // Merge: prioritize database for deletions, keep new local ones
+              const mergedDeliveries = [
+                ...dbDeliveries, // Database deliveries (source of truth)
+                ...localDeliveries.filter(local => !dbIds.has(local.id)) // New local deliveries not in DB
+              ];
+              
+              const updatedSummary = StorageManager.calculateSummary(mergedDeliveries);
+              
+              // Update local storage too
+              const updatedTodayData = {
+                ...dayData,
+                deliveries: mergedDeliveries,
+                summary: updatedSummary
+              };
+              StorageManager.updateDailyData(updatedTodayData);
+              
+              return updatedTodayData;
+            }
+            return dayData;
+          });
+          
+          setDailyData(updatedDailyData);
+          console.log('✅ Focus sync completed');
+        }
+      } catch (error) {
+        console.error('❌ Focus sync failed:', error);
+      }
+    };
+
+    window.addEventListener('focus', handleWindowFocus);
+    return () => window.removeEventListener('focus', handleWindowFocus);
+  }, [isOnline, dailyData]);
 
   const getTodayData = useCallback((): DailyData => {
     const today = MobileFix.getTodayString();
