@@ -152,7 +152,6 @@ function App() {
                     // For editing, you could open a form similar to StoreForm
                     console.log('Edit delivery:', delivery);
                   }}
-                  onDelete={deleteDelivery}
                   onStatusChange={(deliveryId, newStatus) => {
                     const delivery = todayData.deliveries.find(d => d.id === deliveryId);
                     if (delivery) {

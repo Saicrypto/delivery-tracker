@@ -1,11 +1,10 @@
 import React, { useState } from 'react';
 import { Delivery, DeliveryStatus } from '../types';
-import { Store, IndianRupee, ChevronDown, ChevronUp, Edit, Trash2, Package, Truck, CheckCircle } from 'lucide-react';
+import { Store, IndianRupee, ChevronDown, ChevronUp, Edit, Package, Truck, CheckCircle } from 'lucide-react';
 
 interface GroupedDeliveriesProps {
   deliveries: Delivery[];
   onEdit?: (delivery: Delivery) => void;
-  onDelete?: (deliveryId: string) => void;
   onStatusChange?: (deliveryId: string, newStatus: DeliveryStatus) => void;
 }
 
@@ -18,7 +17,6 @@ interface StoreGroup {
 export const GroupedDeliveries: React.FC<GroupedDeliveriesProps> = ({
   deliveries,
   onEdit,
-  onDelete,
   onStatusChange
 }) => {
   const [expandedStores, setExpandedStores] = useState<Set<string>>(new Set());
@@ -151,24 +149,14 @@ export const GroupedDeliveries: React.FC<GroupedDeliveriesProps> = ({
                 )}
 
                 {/* Single order actions */}
-                {!hasMultipleOrders && (
+                {!hasMultipleOrders && onEdit && (
                   <div className="flex space-x-1">
-                    {onEdit && (
-                      <button
-                        onClick={() => onEdit(group.deliveries[0])}
-                        className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
-                      >
-                        <Edit className="h-3 w-3" />
-                      </button>
-                    )}
-                    {onDelete && (
-                      <button
-                        onClick={() => onDelete(group.deliveries[0].id)}
-                        className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                      >
-                        <Trash2 className="h-3 w-3" />
-                      </button>
-                    )}
+                    <button
+                      onClick={() => onEdit(group.deliveries[0])}
+                      className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                    >
+                      <Edit className="h-3 w-3" />
+                    </button>
                   </div>
                 )}
               </div>
@@ -245,24 +233,16 @@ export const GroupedDeliveries: React.FC<GroupedDeliveriesProps> = ({
                         )}
                       </div>
 
-                      <div className="flex space-x-1">
-                        {onEdit && (
+                      {onEdit && (
+                        <div className="flex space-x-1">
                           <button
                             onClick={() => onEdit(delivery)}
                             className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
                           >
                             <Edit className="h-3 w-3" />
                           </button>
-                        )}
-                        {onDelete && (
-                          <button
-                            onClick={() => onDelete(delivery.id)}
-                            className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                        )}
-                      </div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
