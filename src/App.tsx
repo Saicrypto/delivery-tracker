@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, Package } from 'lucide-react';
+import { Plus, Package, Download, Calendar } from 'lucide-react';
 import { Header } from './components/Header';
 import { SummaryDashboard } from './components/SummaryDashboard';
 import { DeliveryCard } from './components/DeliveryCard';
 import { GroupedDeliveries } from './components/GroupedDeliveries';
 import { StoreForm } from './components/StoreForm';
 import { BulkOrderForm } from './components/BulkOrderForm';
-import { CSVExportSection } from './components/CSVExportSection';
 import { DebugInfo } from './components/DebugInfo';
 import { DataManager } from './components/DataManager';
 import { DatabaseInspector } from './components/DatabaseInspector';
@@ -35,6 +34,10 @@ function App() {
 
   const [showStoreForm, setShowStoreForm] = useState(false);
   const [showBulkOrderForm, setShowBulkOrderForm] = useState(false);
+  const [showCSVFilter, setShowCSVFilter] = useState(false);
+  const [startDate, setStartDate] = useState('');
+  const [endDate, setEndDate] = useState('');
+  const [isExporting, setIsExporting] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [showDataManager, setShowDataManager] = useState(false);
   const [showDatabaseInspector, setShowDatabaseInspector] = useState(false);
@@ -57,6 +60,110 @@ function App() {
     } catch (error) {
       console.error('Error adding bulk deliveries:', error);
       alert('❌ Error adding deliveries. Please check console for details.');
+    }
+  };
+
+  // CSV Export handler
+  const handleCSVExport = () => {
+    setIsExporting(true);
+    try {
+      // Filter data by date range if provided
+      let filteredData = dailyData;
+      
+      if (startDate || endDate) {
+        filteredData = dailyData.filter(day => {
+          const dayDate = new Date(day.date);
+          const start = startDate ? new Date(startDate) : new Date('1900-01-01');
+          const end = endDate ? new Date(endDate) : new Date('2100-12-31');
+          
+          return dayDate >= start && dayDate <= end;
+        });
+      }
+
+      // Flatten all deliveries from filtered data
+      const allDeliveries = filteredData.flatMap((day) => day.deliveries || []);
+
+      if (allDeliveries.length === 0) {
+        alert('No delivery data found for the selected date range');
+        setIsExporting(false);
+        return;
+      }
+
+      // Create CSV headers (excluding itemDetails as requested)
+      const headers = [
+        'Date',
+        'Store Name',
+        'Customer Name',
+        'Phone Number',
+        'Address',
+        'Order Number',
+        'Order Price',
+        'Delivery Status',
+        'Total Deliveries',
+        'Delivered',
+        'Pending',
+        'Bills',
+        'Total Amount',
+        'Paid Amount',
+        'Pending Amount',
+        'Overdue Amount'
+      ];
+
+      // Create CSV rows
+      const rows = allDeliveries.map(delivery => [
+        delivery.date,
+        delivery.storeName,
+        delivery.customerName,
+        delivery.phoneNumber,
+        delivery.address,
+        delivery.orderNumber,
+        delivery.orderPrice,
+        delivery.deliveryStatus,
+        delivery.totalDeliveries,
+        delivery.delivered,
+        delivery.pending,
+        delivery.bills,
+        delivery.paymentStatus.total,
+        delivery.paymentStatus.paid,
+        delivery.paymentStatus.pending,
+        delivery.paymentStatus.overdue
+      ]);
+
+      // Combine headers and rows
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n');
+
+      // Create and download CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      
+      // Generate filename with date range
+      const dateRange = startDate && endDate 
+        ? `${startDate}_to_${endDate}`
+        : startDate 
+        ? `from_${startDate}`
+        : endDate
+        ? `until_${endDate}`
+        : new Date().toISOString().split('T')[0];
+      
+      a.download = `delivery-data-${dateRange}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      alert(`✅ CSV exported successfully with ${allDeliveries.length} deliveries`);
+      
+      // Hide filter after successful export
+      setShowCSVFilter(false);
+    } catch (error) {
+      console.error('CSV export failed:', error);
+      alert('CSV export failed. Please try again.');
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -99,6 +206,13 @@ function App() {
               <Package className="h-5 w-5 mr-2" />
               Bulk Orders
             </button>
+            <button
+              onClick={() => setShowCSVFilter(!showCSVFilter)}
+              className="inline-flex items-center px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              <Download className="h-5 w-5 mr-2" />
+              Export CSV
+            </button>
           </div>
           
           <div className="text-sm text-gray-600">
@@ -117,10 +231,80 @@ function App() {
         {/* Summary Dashboard */}
         <SummaryDashboard data={currentData} viewMode={viewMode} />
 
-        {/* CSV Export Section */}
-        <div className="mb-6">
-          <CSVExportSection dailyData={dailyData} />
-        </div>
+        {/* CSV Date Filter (Collapsible) */}
+        {showCSVFilter && (
+          <div className="mb-6 bg-white rounded-lg shadow-sm border border-gray-200 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-medium text-gray-900 flex items-center">
+                <Calendar className="h-5 w-5 mr-2 text-purple-600" />
+                CSV Export Options
+              </h3>
+              <button
+                onClick={() => setShowCSVFilter(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                ×
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Start Date (Optional)
+                </label>
+                <input
+                  type="date"
+                  value={startDate}
+                  onChange={(e) => setStartDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  End Date (Optional)
+                </label>
+                <input
+                  type="date"
+                  value={endDate}
+                  onChange={(e) => setEndDate(e.target.value)}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500"
+                />
+              </div>
+              
+              <div className="flex space-x-2">
+                <button
+                  onClick={handleCSVExport}
+                  disabled={isExporting}
+                  className="flex-1 flex items-center justify-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-md hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                >
+                  <Download className="h-4 w-4" />
+                  <span>{isExporting ? 'Exporting...' : 'Download'}</span>
+                </button>
+                
+                {(startDate || endDate) && (
+                  <button
+                    onClick={() => {
+                      setStartDate('');
+                      setEndDate('');
+                    }}
+                    className="px-3 py-2 text-gray-600 border border-gray-300 rounded-md hover:bg-gray-50 transition-colors"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+            </div>
+            
+            <div className="mt-3 text-sm text-gray-600">
+              {startDate || endDate ? (
+                <span>Export from {startDate || 'beginning'} to {endDate || 'present'}</span>
+              ) : (
+                <span>Export all delivery data (excludes item details)</span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* Deliveries Grid */}
         <div className="mb-6">
