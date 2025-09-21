@@ -6,6 +6,7 @@ import { DeliveryCard } from './components/DeliveryCard';
 import { GroupedDeliveries } from './components/GroupedDeliveries';
 import { StoreForm } from './components/StoreForm';
 import { BulkOrderForm } from './components/BulkOrderForm';
+import { CSVExportSection } from './components/CSVExportSection';
 import { DebugInfo } from './components/DebugInfo';
 import { DataManager } from './components/DataManager';
 import { DatabaseInspector } from './components/DatabaseInspector';
@@ -116,6 +117,10 @@ function App() {
         {/* Summary Dashboard */}
         <SummaryDashboard data={currentData} viewMode={viewMode} />
 
+        {/* CSV Export Section */}
+        <div className="mb-6">
+          <CSVExportSection dailyData={dailyData} />
+        </div>
 
         {/* Deliveries Grid */}
         <div className="mb-6">
