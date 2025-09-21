@@ -48,6 +48,19 @@ export const PWAInstallButton: React.FC = () => {
       return;
     }
 
+    // Show install button for Brave and other browsers even without beforeinstallprompt
+    const userAgent = navigator.userAgent.toLowerCase();
+    const isBrave = (navigator as any).brave !== undefined;
+    const isChromium = userAgent.includes('chrome') || userAgent.includes('chromium') || userAgent.includes('brave');
+    
+    console.log('🔍 Browser detection:', { isBrave, isChromium, userAgent: userAgent.substring(0, 50) });
+    
+    // For Brave and other Chromium browsers, show install button even without prompt
+    if (isChromium || isBrave) {
+      setShowInstallButton(true);
+      console.log('🦁 Brave/Chromium detected - showing install button');
+    }
+
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
@@ -59,16 +72,24 @@ export const PWAInstallButton: React.FC = () => {
 
   const handleInstallClick = async () => {
     if (!deferredPrompt) {
-      // Fallback for browsers that don't support the install prompt
+      // Enhanced fallback for different browsers
       const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent);
       const isAndroid = /Android/.test(navigator.userAgent);
+      const isBrave = (navigator as any).brave !== undefined;
+      const userAgent = navigator.userAgent.toLowerCase();
       
       if (isIOS) {
-        window.alert('To install this app on iOS:\n1. Tap the Share button\n2. Select "Add to Home Screen"');
+        window.alert('📱 To install on iOS/Safari:\n1. Tap the Share button (⬆️)\n2. Scroll down and select "Add to Home Screen"\n3. Tap "Add" to install');
       } else if (isAndroid) {
-        window.alert('To install this app:\n1. Tap the menu (⋮)\n2. Select "Add to Home screen" or "Install app"');
+        window.alert('📱 To install on Android:\n1. Tap the menu (⋮) in top-right\n2. Select "Add to Home screen" or "Install app"\n3. Tap "Install" to confirm');
+      } else if (isBrave || userAgent.includes('brave')) {
+        window.alert('🦁 To install in Brave Browser:\n1. Click the menu (☰) in top-right\n2. Select "Install Delivery Tracker..."\n3. Click "Install" to add to desktop\n\nOr look for the install icon (⬇️) in the address bar!');
+      } else if (userAgent.includes('chrome')) {
+        window.alert('🌐 To install in Chrome:\n1. Look for the install icon (⬇️) in the address bar\n2. Or click menu (⋮) → "Install Delivery Tracker..."\n3. Click "Install" to add to desktop');
+      } else if (userAgent.includes('edge')) {
+        window.alert('🌐 To install in Edge:\n1. Click the menu (...) in top-right\n2. Select "Apps" → "Install this site as an app"\n3. Click "Install" to add to desktop');
       } else {
-        window.alert('To install this app:\n1. Look for the install icon in your browser\'s address bar\n2. Or check your browser\'s menu for "Install" option');
+        window.alert('🌐 To install this app:\n1. Look for the install icon (⬇️) in your browser\'s address bar\n2. Or check your browser\'s menu for "Install" or "Add to Home Screen" option\n3. Follow the prompts to install');
       }
       return;
     }
@@ -102,12 +123,19 @@ export const PWAInstallButton: React.FC = () => {
     return null;
   }
 
+  const userAgent = navigator.userAgent.toLowerCase();
+  const isBrave = (navigator as any).brave !== undefined;
+  const browserName = isBrave || userAgent.includes('brave') ? 'Brave' : 
+                     userAgent.includes('chrome') ? 'Chrome' :
+                     userAgent.includes('edge') ? 'Edge' :
+                     userAgent.includes('firefox') ? 'Firefox' : 'Browser';
+
   return (
     <button
       onClick={handleInstallClick}
       disabled={isInstalling}
       className="flex items-center space-x-2 px-3 py-2 text-sm font-medium text-blue-600 hover:text-blue-700 hover:bg-blue-50 rounded-md transition-colors disabled:opacity-50 disabled:cursor-not-allowed border border-blue-200 hover:border-blue-300"
-      title="Install Delivery Tracker as an app"
+      title={`Install Delivery Tracker as an app on ${browserName}`}
     >
       {isInstalling ? (
         <>
@@ -118,7 +146,7 @@ export const PWAInstallButton: React.FC = () => {
         <>
           <Smartphone className="h-4 w-4" />
           <Download className="h-4 w-4" />
-          <span>Install App</span>
+          <span>Install on {browserName}</span>
         </>
       )}
     </button>
