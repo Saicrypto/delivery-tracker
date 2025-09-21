@@ -242,7 +242,7 @@ export class DatabaseService {
         address: (row.address as string) || '',
         itemDetails: (row.item_details as string) || '',
         orderNumber: (row.order_number as string) || '',
-        deliveryStatus: (row.delivery_status as any) || 'pending pickup',
+        deliveryStatus: (row.delivery_status as 'pending pickup' | 'picked up' | 'delivered') || 'pending pickup',
         orderPrice: (row.order_price as number) || 0,
         // Map DB total_deliveries to both fields for compatibility
         numberOfDeliveries: (row.total_deliveries as number) ?? 0,
@@ -283,7 +283,7 @@ export class DatabaseService {
         address: (row.address as string) || '',
         itemDetails: (row.item_details as string) || '',
         orderNumber: (row.order_number as string) || '',
-        deliveryStatus: (row.delivery_status as any) || 'pending pickup',
+        deliveryStatus: (row.delivery_status as 'pending pickup' | 'picked up' | 'delivered') || 'pending pickup',
         orderPrice: (row.order_price as number) || 0,
         numberOfDeliveries: (row.total_deliveries as number) ?? 0,
         totalDeliveries: (row.total_deliveries as number) ?? 0,
