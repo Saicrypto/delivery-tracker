@@ -190,15 +190,25 @@ export const useDeliveryData = () => {
             // Update today's data with database state
             const updatedDailyData = dailyData.map(dayData => {
               if (dayData.date === today) {
-                // Database is the source of truth - use it as the primary source
-                // Only add local deliveries that are truly new (not in database yet)
+                // Database is the source of truth for deletions
+                // Use database deliveries as the primary source
+                console.log(`🔄 Sync: Database has ${dbDeliveries.length} deliveries, Local has ${localDeliveries.length} deliveries`);
+                
+                // Only add local deliveries that are truly new AND not yet synced to database
+                // Filter out any local deliveries that were recently created (within last 30 seconds)
+                const now = Date.now();
                 const newLocalDeliveries = localDeliveries.filter(local => {
                   // Only keep local deliveries that don't exist in database
-                  return !dbIds.has(local.id);
+                  const notInDb = !dbIds.has(local.id);
+                  // And only if they're very recent (just created, not yet synced)
+                  const isRecent = now - parseInt(local.id) < 30000; // 30 seconds
+                  return notInDb && isRecent;
                 });
                 
-                console.log(`🔄 Merging: ${dbDeliveries.length} from DB + ${newLocalDeliveries.length} new local = ${dbDeliveries.length + newLocalDeliveries.length} total`);
+                console.log(`🔄 Merging: ${dbDeliveries.length} from DB + ${newLocalDeliveries.length} new local (recent) = ${dbDeliveries.length + newLocalDeliveries.length} total`);
+                console.log(`📋 New local deliveries:`, newLocalDeliveries.map(d => `${d.id}: ${d.customerName || 'Unknown'}`));
                 
+                // Final merged deliveries - database is authoritative, plus only very recent local additions
                 const mergedDeliveries = [...dbDeliveries, ...newLocalDeliveries];
                 const updatedSummary = StorageManager.calculateSummary(mergedDeliveries);
                 
@@ -272,14 +282,21 @@ export const useDeliveryData = () => {
           // Update today's data with database state
           const updatedDailyData = dailyData.map(dayData => {
             if (dayData.date === today) {
-              // Database is the source of truth - use it as the primary source
-              // Only add local deliveries that are truly new (not in database yet)
+              // Database is the source of truth for deletions
+              console.log(`🔄 Focus sync: Database has ${dbDeliveries.length} deliveries, Local has ${localDeliveries.length} deliveries`);
+              
+              // Only add local deliveries that are truly new AND very recent
+              const now = Date.now();
               const newLocalDeliveries = localDeliveries.filter(local => {
                 // Only keep local deliveries that don't exist in database
-                return !dbIds.has(local.id);
+                const notInDb = !dbIds.has(local.id);
+                // And only if they're very recent (just created, not yet synced)
+                const isRecent = now - parseInt(local.id) < 30000; // 30 seconds
+                return notInDb && isRecent;
               });
               
-              console.log(`🔄 Focus sync merging: ${dbDeliveries.length} from DB + ${newLocalDeliveries.length} new local = ${dbDeliveries.length + newLocalDeliveries.length} total`);
+              console.log(`🔄 Focus sync merging: ${dbDeliveries.length} from DB + ${newLocalDeliveries.length} new local (recent) = ${dbDeliveries.length + newLocalDeliveries.length} total`);
+              console.log(`📋 Focus sync new local deliveries:`, newLocalDeliveries.map(d => `${d.id}: ${d.customerName || 'Unknown'}`));
               
               const mergedDeliveries = [...dbDeliveries, ...newLocalDeliveries];
               const updatedSummary = StorageManager.calculateSummary(mergedDeliveries);
