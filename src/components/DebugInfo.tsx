@@ -199,6 +199,42 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
             >
               {isTesting ? 'Resyncing...' : 'Force Resync Today'}
             </button>
+
+            <button
+              onClick={async () => {
+                setIsTesting(true);
+                try {
+                  const { DeletionTest } = await import('../utils/deletionTest');
+                  await DeletionTest.testDeletionFlow();
+                } catch (error) {
+                  console.error('Deletion test failed:', error);
+                } finally {
+                  setIsTesting(false);
+                }
+              }}
+              disabled={isTesting}
+              className="w-full px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
+            >
+              {isTesting ? 'Testing...' : 'Test Deletion Flow'}
+            </button>
+
+            <button
+              onClick={async () => {
+                setIsTesting(true);
+                try {
+                  const { DeletionTest } = await import('../utils/deletionTest');
+                  await DeletionTest.testCrossDeviceSync();
+                } catch (error) {
+                  console.error('Cross-device sync test failed:', error);
+                } finally {
+                  setIsTesting(false);
+                }
+              }}
+              disabled={isTesting}
+              className="w-full px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
+            >
+              {isTesting ? 'Testing...' : 'Test Cross-Device Sync'}
+            </button>
           </div>
 
           {onClearAndResync && (
