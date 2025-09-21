@@ -1,12 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, BarChart3, Package } from 'lucide-react';
+import { Plus, Package } from 'lucide-react';
 import { Header } from './components/Header';
 import { SummaryDashboard } from './components/SummaryDashboard';
 import { DeliveryCard } from './components/DeliveryCard';
 import { GroupedDeliveries } from './components/GroupedDeliveries';
 import { StoreForm } from './components/StoreForm';
 import { BulkOrderForm } from './components/BulkOrderForm';
-import { ChartsSection } from './components/ChartsSection';
 import { DebugInfo } from './components/DebugInfo';
 import { DataManager } from './components/DataManager';
 import { DatabaseInspector } from './components/DatabaseInspector';
@@ -35,7 +34,6 @@ function App() {
 
   const [showStoreForm, setShowStoreForm] = useState(false);
   const [showBulkOrderForm, setShowBulkOrderForm] = useState(false);
-  const [showCharts, setShowCharts] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [showDataManager, setShowDataManager] = useState(false);
   const [showDatabaseInspector, setShowDatabaseInspector] = useState(false);
@@ -100,17 +98,6 @@ function App() {
               <Package className="h-5 w-5 mr-2" />
               Bulk Orders
             </button>
-            <button
-              onClick={() => setShowCharts(!showCharts)}
-              className={`inline-flex items-center px-4 py-2 rounded-lg transition-colors ${
-                showCharts
-                  ? 'bg-gray-200 text-gray-800 hover:bg-gray-300'
-                  : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
-              }`}
-            >
-              <BarChart3 className="h-5 w-5 mr-2" />
-              {showCharts ? 'Hide Charts' : 'Show Analytics'}
-            </button>
           </div>
           
           <div className="text-sm text-gray-600">
@@ -129,12 +116,6 @@ function App() {
         {/* Summary Dashboard */}
         <SummaryDashboard data={currentData} viewMode={viewMode} />
 
-        {/* Charts Section */}
-        {showCharts && (
-          <div className="mb-6">
-            <ChartsSection data={currentData} viewMode={viewMode} />
-          </div>
-        )}
 
         {/* Deliveries Grid */}
         <div className="mb-6">
