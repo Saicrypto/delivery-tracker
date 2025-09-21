@@ -1,7 +1,7 @@
 {
   "name": "Delivery Tracker",
   "short_name": "Del Tracker",
-  "description": "Track daily deliveries and manage orders",
+  "description": "Track daily deliveries, manage orders, and bulk entry with CSV export",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
