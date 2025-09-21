@@ -1,17 +1,15 @@
 import React from 'react';
 import { Delivery } from '../types';
-import { Store, IndianRupee, Edit, Trash2 } from 'lucide-react';
+import { Store, IndianRupee, Edit } from 'lucide-react';
 
 interface DeliveryCardProps {
   delivery: Delivery;
   onEdit?: (delivery: Delivery) => void;
-  onDelete?: (deliveryId: string) => void;
 }
 
 export const DeliveryCard: React.FC<DeliveryCardProps> = ({
   delivery,
-  onEdit,
-  onDelete
+  onEdit
 }) => {
   return (
     <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
@@ -51,24 +49,16 @@ export const DeliveryCard: React.FC<DeliveryCardProps> = ({
           )}
 
           {/* Action Buttons */}
-          <div className="flex space-x-1">
-            {onEdit && (
+          {onEdit && (
+            <div className="flex space-x-1">
               <button
                 onClick={() => onEdit(delivery)}
                 className="p-1 text-gray-400 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
               >
                 <Edit className="h-3 w-3" />
               </button>
-            )}
-            {onDelete && (
-              <button
-                onClick={() => onDelete(delivery.id)}
-                className="p-1 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded transition-colors"
-              >
-                <Trash2 className="h-3 w-3" />
-              </button>
-            )}
-          </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

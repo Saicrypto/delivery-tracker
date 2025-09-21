@@ -24,7 +24,6 @@ function App() {
     getTodayData,
     addStore,
     addDelivery,
-    deleteDelivery,
     updateDelivery,
     refreshData,
     clearAndResync
@@ -166,7 +165,6 @@ function App() {
                       <DeliveryCard
                         key={delivery.id}
                         delivery={delivery}
-                        onDelete={deleteDelivery}
                       />
                     ))
                   )}

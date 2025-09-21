@@ -136,9 +136,8 @@ export class SyncTest {
         };
       }
 
-      // Clean up
-      console.log('🧹 Cleaning up test data...');
-      await HybridStorageManager.deleteDelivery(testId);
+      // Note: Test data cleanup skipped - delete functionality removed
+      console.log('ℹ️ Test data cleanup skipped - delete functionality has been removed from the application');
 
       return {
         success: true,

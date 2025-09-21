@@ -1,10 +1,15 @@
-import { DatabaseService } from '../services/database';
-import { HybridStorageManager } from './hybridStorage';
+// DISABLED: Delete functionality removed - imports commented out
+// import { DatabaseService } from '../services/database';
+// import { HybridStorageManager } from './hybridStorage';
 
 export class DeletionTest {
   static async testDeletionFlow(): Promise<void> {
-    console.log('🧪 Testing deletion flow...');
+    console.log('--- Deletion Flow Test Disabled ---');
+    console.log('ℹ️ Deletion functionality has been removed from the application');
+    return;
     
+    // DISABLED: Delete functionality removed
+    /* 
     try {
       // Test 1: Check database connection
       const isConnected = await DatabaseService.testConnection();
@@ -54,9 +59,16 @@ export class DeletionTest {
     } catch (error) {
       console.error('❌ Deletion test failed:', error);
     }
+    */
   }
   
   static async testCrossDeviceSync(): Promise<void> {
+    console.log('--- Cross-Device Sync Test Disabled ---');
+    console.log('ℹ️ Deletion functionality has been removed from the application');
+    return;
+    
+    // DISABLED: Delete functionality removed
+    /*
     console.log('🌐 Testing cross-device sync...');
     
     try {
@@ -87,6 +99,7 @@ export class DeletionTest {
     } catch (error) {
       console.error('❌ Cross-device sync test failed:', error);
     }
+    */
   }
 }
 

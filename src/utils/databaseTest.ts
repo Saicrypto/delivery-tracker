@@ -109,10 +109,8 @@ export class DatabaseTester {
         await DatabaseService.saveDelivery(testDelivery);
         console.log('✅ Delivery creation test passed');
         
-        // Clean up test data
-        await DatabaseService.deleteStore(testStore.id);
-        await DatabaseService.deleteDelivery(testDelivery.id);
-        console.log('🧹 Test data cleaned up');
+        // Note: Test data cleanup skipped - delete functionality removed
+        console.log('ℹ️ Test data cleanup skipped - delete functionality has been removed from the application');
         
         console.log('🎉 All database tests passed!');
         

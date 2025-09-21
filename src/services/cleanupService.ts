@@ -1,4 +1,3 @@
-import { DatabaseService } from './database';
 import { StorageManager } from '../utils/storage';
 import { MobileFix } from '../utils/mobileFix';
 
@@ -62,22 +61,8 @@ export class CleanupService {
       // Save updated data to local storage
       StorageManager.saveDailyData(updatedDailyData);
 
-      // Clean up database - remove delivered orders from today
-      try {
-        const allDeliveries = await DatabaseService.getDeliveries();
-        const todayDeliveredOrders = allDeliveries.filter(
-          d => d.date === today && d.deliveryStatus === 'delivered'
-        );
-
-        for (const delivery of todayDeliveredOrders) {
-          await DatabaseService.deleteDelivery(delivery.id);
-        }
-        
-        console.log(`🗑️ Removed ${todayDeliveredOrders.length} delivered orders from database`);
-      } catch (error) {
-        console.warn('⚠️ Database cleanup failed:', error);
-        // Continue with local cleanup even if database fails
-      }
+      // Note: Database cleanup disabled - delete functionality removed
+      console.log('ℹ️ Database cleanup skipped - delete functionality has been removed from the application');
 
       // Mark cleanup as completed for today
       localStorage.setItem(this.LAST_CLEANUP_KEY, today);

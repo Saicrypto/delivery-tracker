@@ -169,19 +169,6 @@ export class DatabaseService {
     }
   }
 
-  static async deleteStore(storeId: string): Promise<void> {
-    try {
-      await this.withSelfHealing(async () => {
-        await client.execute({
-          sql: 'DELETE FROM stores WHERE id = ?',
-          args: [storeId]
-        });
-      });
-    } catch (error) {
-      console.error('Error deleting store:', error);
-      throw error;
-    }
-  }
 
   // Delivery operations
   static async saveDelivery(delivery: Delivery): Promise<void> {
@@ -304,19 +291,6 @@ export class DatabaseService {
     }
   }
 
-  static async deleteDelivery(deliveryId: string): Promise<void> {
-    try {
-      await this.withSelfHealing(async () => {
-        await client.execute({
-          sql: 'DELETE FROM deliveries WHERE id = ?',
-          args: [deliveryId]
-        });
-      });
-    } catch (error) {
-      console.error('Error deleting delivery:', error);
-      throw error;
-    }
-  }
 
   // Get daily data with summary
   static async getDailyData(): Promise<DailyData[]> {

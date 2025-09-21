@@ -15,7 +15,6 @@ export const useDeliveryData = () => {
   const [viewMode, setViewMode] = useState<ViewMode>('daily');
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(false);
-  const [recentlyDeleted, setRecentlyDeleted] = useState<Set<string>>(new Set());
 
   // Load initial data
   useEffect(() => {
@@ -198,14 +197,9 @@ export const useDeliveryData = () => {
                   return !dbIds.has(local.id);
                 });
                 
-                // Filter out recently deleted deliveries from database results
-                const filteredDbDeliveries = dbDeliveries.filter(delivery => {
-                  return !recentlyDeleted.has(delivery.id);
-                });
+                console.log(`🔄 Merging: ${dbDeliveries.length} from DB + ${newLocalDeliveries.length} new local = ${dbDeliveries.length + newLocalDeliveries.length} total`);
                 
-                console.log(`🔄 Merging: ${filteredDbDeliveries.length} from DB (${dbDeliveries.length - filteredDbDeliveries.length} filtered out) + ${newLocalDeliveries.length} new local = ${filteredDbDeliveries.length + newLocalDeliveries.length} total`);
-                
-                const mergedDeliveries = [...filteredDbDeliveries, ...newLocalDeliveries];
+                const mergedDeliveries = [...dbDeliveries, ...newLocalDeliveries];
                 const updatedSummary = StorageManager.calculateSummary(mergedDeliveries);
                 
                 // Update local storage to match the merged state
@@ -285,14 +279,9 @@ export const useDeliveryData = () => {
                 return !dbIds.has(local.id);
               });
               
-              // Filter out recently deleted deliveries from database results
-              const filteredDbDeliveries = dbDeliveries.filter(delivery => {
-                return !recentlyDeleted.has(delivery.id);
-              });
+              console.log(`🔄 Focus sync merging: ${dbDeliveries.length} from DB + ${newLocalDeliveries.length} new local = ${dbDeliveries.length + newLocalDeliveries.length} total`);
               
-              console.log(`🔄 Focus sync merging: ${filteredDbDeliveries.length} from DB (${dbDeliveries.length - filteredDbDeliveries.length} filtered out) + ${newLocalDeliveries.length} new local = ${filteredDbDeliveries.length + newLocalDeliveries.length} total`);
-              
-              const mergedDeliveries = [...filteredDbDeliveries, ...newLocalDeliveries];
+              const mergedDeliveries = [...dbDeliveries, ...newLocalDeliveries];
               const updatedSummary = StorageManager.calculateSummary(mergedDeliveries);
               
               // Update local storage to match the merged state
@@ -363,11 +352,6 @@ export const useDeliveryData = () => {
     StorageManager.saveStores(updatedStores);
   }, [stores]);
 
-  const deleteStore = useCallback((storeId: string) => {
-    const updatedStores = stores.filter(store => store.id !== storeId);
-    setStores(updatedStores);
-    StorageManager.saveStores(updatedStores);
-  }, [stores]);
 
   const addDelivery = useCallback(async (delivery: Omit<Delivery, 'id'>) => {
     const newDelivery: Delivery = {
@@ -485,65 +469,6 @@ export const useDeliveryData = () => {
     }
   }, [dailyData]);
 
-  const deleteDelivery = useCallback(async (deliveryId: string) => {
-    const today = format(new Date(), 'yyyy-MM-dd');
-    
-    console.log(`🗑️ Deleting delivery ${deliveryId}...`);
-    
-    // Add to recently deleted list to prevent resurrection
-    setRecentlyDeleted(prev => new Set(Array.from(prev).concat(deliveryId)));
-    
-    // Remove from recently deleted after 5 minutes (in case it was a mistake)
-    setTimeout(() => {
-      setRecentlyDeleted(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(deliveryId);
-        return newSet;
-      });
-    }, 300000); // 5 minutes
-    
-    const updatedDailyData = dailyData.map(data => {
-      if (data.date === today) {
-        const updatedDeliveries = data.deliveries.filter(delivery => delivery.id !== deliveryId);
-        const updatedSummary = StorageManager.calculateSummary(updatedDeliveries);
-        
-        return {
-          ...data,
-          deliveries: updatedDeliveries,
-          summary: updatedSummary
-        };
-      }
-      return data;
-    });
-
-    setDailyData(updatedDailyData);
-    
-    const todayData = updatedDailyData.find(data => data.date === today);
-    if (todayData) {
-      StorageManager.updateDailyData(todayData);
-    }
-
-    // Delete from database using HybridStorageManager
-    try {
-      await HybridStorageManager.deleteDelivery(deliveryId);
-      console.log('✅ Delivery deleted from both local storage and database');
-      
-      // No need for aggressive refresh - the local state is already updated
-      // Database deletion will be reflected on other devices when they sync
-    } catch (error) {
-      console.error('❌ Failed to delete delivery:', error);
-      // Remove from recently deleted since deletion failed
-      setRecentlyDeleted(prev => {
-        const newSet = new Set(prev);
-        newSet.delete(deliveryId);
-        return newSet;
-      });
-      // If database deletion failed, we should revert the local deletion
-      window.alert('Failed to delete delivery. Please try again.');
-      // Refresh to restore the deleted item
-      window.location.reload();
-    }
-  }, [dailyData]);
 
   const getDataForView = useCallback(() => {
     switch (viewMode) {
@@ -599,10 +524,8 @@ export const useDeliveryData = () => {
     getDataForView,
     addStore,
     updateStore,
-    deleteStore,
     addDelivery,
     updateDelivery,
-    deleteDelivery,
     refreshData,
     clearAndResync
   };
