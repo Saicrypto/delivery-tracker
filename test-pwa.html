@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PWA Test - Delivery Tracker</title>
+    <link rel="manifest" href="/manifest.webmanifest">
+    <meta name="theme-color" content="#2563eb">
+</head>
+<body>
+    <h1>🔧 PWA Test Page</h1>
+    <p>This page tests if your PWA is properly configured.</p>
+
+    <h2>✅ PWA Requirements Check:</h2>
+    <ul>
+        <li>HTTPS: <span id="https-check">⏳</span></li>
+        <li>Manifest: <span id="manifest-check">⏳</span></li>
+        <li>Service Worker: <span id="sw-check">⏳</span></li>
+        <li>Install Button: <span id="install-check">⏳</span></li>
+    </ul>
+
+    <h2>🌐 Test Your Vercel App:</h2>
+    <p>Replace YOUR_USERNAME in the URLs below:</p>
+    <ul>
+        <li><a href="https://YOUR_USERNAME.vercel.app" target="_blank">Your Vercel App</a></li>
+        <li><a href="https://YOUR_USERNAME.vercel.app/manifest.webmanifest" target="_blank">Manifest File</a></li>
+    </ul>
+
+    <h2>📱 Brave PWA Install Test:</h2>
+    <button id="install-btn">Install PWA</button>
+    <p id="install-status"></p>
+
+    <script>
+        // Check HTTPS
+        document.getElementById('https-check').textContent =
+            location.protocol === 'https:' ? '✅' : '❌';
+
+        // Check Manifest
+        fetch('/manifest.webmanifest')
+            .then(response => {
+                document.getElementById('manifest-check').textContent =
+                    response.ok ? '✅' : '❌';
+            })
+            .catch(() => {
+                document.getElementById('manifest-check').textContent = '❌';
+            });
+
+        // Check Service Worker
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('/sw.js')
+                .then(() => {
+                    document.getElementById('sw-check').textContent = '✅';
+                })
+                .catch(() => {
+                    document.getElementById('sw-check').textContent = '❌';
+                });
+        } else {
+            document.getElementById('sw-check').textContent = '❌';
+        }
+
+        // PWA Install
+        let deferredPrompt;
+        window.addEventListener('beforeinstallprompt', (e) => {
+            e.preventDefault();
+            deferredPrompt = e;
+            document.getElementById('install-check').textContent = '✅';
+            document.getElementById('install-btn').style.display = 'block';
+        });
+
+        document.getElementById('install-btn').addEventListener('click', () => {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    document.getElementById('install-status').textContent =
+                        choiceResult.outcome === 'accepted' ? '✅ Installed!' : '❌ Cancelled';
+                    deferredPrompt = null;
+                });
+            }
+        });
+    </script>
+
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        a { color: #2563eb; }
+        button { background: #2563eb; color: white; border: none; padding: 10px 20px; margin: 10px 0; cursor: pointer; }
+        ul { list-style-type: none; padding: 0; }
+        li { margin: 10px 0; }
+    </style>
+</body>
+</html>
