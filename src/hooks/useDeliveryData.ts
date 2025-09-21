@@ -469,6 +469,43 @@ export const useDeliveryData = () => {
     }
   }, [dailyData]);
 
+  const deleteDelivery = useCallback(async (deliveryId: string) => {
+    const today = format(new Date(), 'yyyy-MM-dd');
+    
+    console.log(`🗑️ Deleting delivery ${deliveryId}...`);
+    
+    // Update local state immediately for responsive UI
+    const updatedDailyData = dailyData.map(data => {
+      if (data.date === today) {
+        const updatedDeliveries = data.deliveries.filter(delivery => delivery.id !== deliveryId);
+        const updatedSummary = StorageManager.calculateSummary(updatedDeliveries);
+        
+        return {
+          ...data,
+          deliveries: updatedDeliveries,
+          summary: updatedSummary
+        };
+      }
+      return data;
+    });
+
+    setDailyData(updatedDailyData);
+    
+    const todayData = updatedDailyData.find(data => data.date === today);
+    if (todayData) {
+      StorageManager.updateDailyData(todayData);
+    }
+
+    // Delete from database using HybridStorageManager
+    try {
+      await HybridStorageManager.deleteDelivery(deliveryId);
+      console.log('✅ Delivery deleted from both local storage and database');
+    } catch (error) {
+      console.error('❌ Failed to delete delivery from database:', error);
+      // If database deletion failed, show error but keep local deletion
+      window.alert('Warning: Failed to sync deletion to database. The order has been removed locally.');
+    }
+  }, [dailyData]);
 
   const getDataForView = useCallback(() => {
     switch (viewMode) {
@@ -526,6 +563,7 @@ export const useDeliveryData = () => {
     updateStore,
     addDelivery,
     updateDelivery,
+    deleteDelivery,
     refreshData,
     clearAndResync
   };

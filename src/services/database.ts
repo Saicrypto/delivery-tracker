@@ -292,6 +292,37 @@ export class DatabaseService {
   }
 
 
+  // Delete operations
+  static async deleteDelivery(deliveryId: string): Promise<void> {
+    try {
+      await this.withSelfHealing(async () => {
+        await client.execute({
+          sql: 'DELETE FROM deliveries WHERE id = ?',
+          args: [deliveryId]
+        });
+      });
+      console.log(`✅ Delivery ${deliveryId} deleted from database`);
+    } catch (error) {
+      console.error('Error deleting delivery:', error);
+      throw error;
+    }
+  }
+
+  static async deleteStore(storeId: string): Promise<void> {
+    try {
+      await this.withSelfHealing(async () => {
+        await client.execute({
+          sql: 'DELETE FROM stores WHERE id = ?',
+          args: [storeId]
+        });
+      });
+      console.log(`✅ Store ${storeId} deleted from database`);
+    } catch (error) {
+      console.error('Error deleting store:', error);
+      throw error;
+    }
+  }
+
   // Get daily data with summary
   static async getDailyData(): Promise<DailyData[]> {
     try {

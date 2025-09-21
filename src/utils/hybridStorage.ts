@@ -179,6 +179,80 @@ export class HybridStorageManager {
     };
   }
 
+  // Delete operations with proper sync
+  static async deleteDelivery(deliveryId: string): Promise<void> {
+    console.log(`🗑️ Deleting delivery ${deliveryId}...`);
+    
+    // Delete from local storage first
+    const today = MobileFix.getTodayString();
+    const localData = StorageManager.getDailyData();
+    const todayData = localData.find(d => d.date === today);
+    
+    if (todayData) {
+      const beforeCount = todayData.deliveries.length;
+      const deliveryToDelete = todayData.deliveries.find(d => d.id === deliveryId);
+      
+      if (deliveryToDelete) {
+        console.log(`📋 Deleting: ${deliveryToDelete.customerName || 'Unknown'} (${deliveryToDelete.storeName})`);
+      }
+      
+      const updatedDeliveries = todayData.deliveries.filter(d => d.id !== deliveryId);
+      const afterCount = updatedDeliveries.length;
+      
+      console.log(`📱 Local deletion: ${beforeCount} → ${afterCount} deliveries`);
+      
+      const updatedSummary = StorageManager.calculateSummary(updatedDeliveries);
+      const updatedTodayData = {
+        ...todayData,
+        deliveries: updatedDeliveries,
+        summary: updatedSummary
+      };
+      StorageManager.updateDailyData(updatedTodayData);
+    }
+    
+    // Delete from database if online
+    if (this.isOnline) {
+      try {
+        await DatabaseService.deleteDelivery(deliveryId);
+        console.log(`✅ Delivery ${deliveryId} deleted from database successfully`);
+        
+        // Verify deletion in database
+        const dbDeliveries = await DatabaseService.getDeliveriesByDate(today);
+        const stillExists = dbDeliveries.find(d => d.id === deliveryId);
+        if (stillExists) {
+          console.log(`⚠️ Warning: Delivery ${deliveryId} still exists in database after deletion`);
+        } else {
+          console.log(`✅ Verified: Delivery ${deliveryId} successfully removed from database`);
+          console.log(`📊 Database now has ${dbDeliveries.length} deliveries for today`);
+        }
+      } catch (error) {
+        console.error(`❌ Failed to delete delivery ${deliveryId} from database:`, error);
+        this.isOnline = false;
+        throw error; // Re-throw to let caller know deletion failed
+      }
+    } else {
+      console.log('⚠️ Offline - delivery deleted locally only');
+    }
+  }
+
+  static async deleteStore(storeId: string): Promise<void> {
+    // Delete from local storage
+    const localStores = StorageManager.getStores().filter(s => s.id !== storeId);
+    StorageManager.saveStores(localStores);
+    
+    // Try to delete from database if online
+    if (this.isOnline) {
+      try {
+        await DatabaseService.deleteStore(storeId);
+        console.log('Store deleted from database');
+      } catch (error) {
+        console.error('Failed to delete store from database:', error);
+        this.isOnline = false;
+        throw error;
+      }
+    }
+  }
+
   // Reconnect to database
   static async reconnect(): Promise<void> {
     await this.initialize();
