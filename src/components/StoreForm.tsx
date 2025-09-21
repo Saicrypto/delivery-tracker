@@ -20,6 +20,13 @@ interface ParsedData {
   orderPrice: number;
 }
 
+type ExtractedData = {
+  name?: string;
+  phone?: string;
+  address?: string;
+  items?: string[];
+};
+
 export const StoreForm: React.FC<StoreFormProps> = ({
   onSubmit,
   onAddStore,
@@ -71,153 +78,56 @@ export const StoreForm: React.FC<StoreFormProps> = ({
     }
   };
 
-  // Smart text parser with refined field detection
-  const parseCustomerData = (text: string): ParsedData => {
-    const lines = text.split('\n').map(line => line.trim()).filter(line => line);
-    const result: ParsedData = {
-      customerName: '',
-      phoneNumber: '',
-      address: '',
-      itemDetails: '',
-      orderNumber: '',
-      deliveryStatus: 'pending pickup',
-      orderPrice: 0
+  // Extract details using your improved parsing logic
+  const extractDetails = (input: string): ExtractedData => {
+    const phoneRegex = /(\+91[-\s]?)?[0]?(91)?[6-9]\d{9}/g;
+    const itemRegex = /\d+\s?(kg|litre|pack|bottle|dozen|x)?\s?[a-zA-Z ]+/gi;
+
+    const phones = input.match(phoneRegex) || [];
+    const items = input.match(itemRegex) || [];
+
+    const lines = input.split(/\n|,/).map(l => l.trim()).filter(Boolean);
+
+    // Pick name = first line without digits/keywords
+    const name = lines.find(l =>
+      !/\d/.test(l) &&
+      !/(road|street|colony|apartment|flat|near|pincode)/i.test(l)
+    );
+
+    // Pick address = line with typical address words
+    const address = lines.find(l =>
+      /(road|street|colony|apartment|flat|near|pincode)/i.test(l)
+    );
+
+    return {
+      name,
+      phone: phones[0],
+      address,
+      items
     };
+  };
 
-    const identifiedLines = new Set<string>();
-    const addressParts: string[] = [];
+  // Convert extracted data to ParsedData format
+  const parseCustomerData = (text: string): ParsedData => {
+    const extracted = extractDetails(text);
+    
+    // Extract order number separately
+    const orderMatch = text.match(/(?:order|ord|#)\s*:?\s*([a-zA-Z0-9]+)/i);
+    const orderNumber = orderMatch ? orderMatch[1] : '';
+    
+    // Extract price separately
+    const priceMatch = text.match(/₹\s*(\d+(?:\.\d{2})?)|rs\s*(\d+(?:\.\d{2})?)|price\s*:?\s*(\d+(?:\.\d{2})?)/i);
+    const orderPrice = priceMatch ? parseFloat(priceMatch[1] || priceMatch[2] || priceMatch[3] || '0') : 0;
 
-    // Step 1: Identify specific fields with priority order
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i];
-      const lowerLine = line.toLowerCase();
-      
-      // Phone number patterns (highest priority)
-      if (/(\+?[\d\s\-()]{8,15})/.test(line) && !result.phoneNumber) {
-        const match = line.match(/(\+?[\d\s\-()]{8,15})/);
-        if (match) {
-          result.phoneNumber = match[1].replace(/\D/g, '');
-          identifiedLines.add(line);
-          continue;
-        }
-      }
-      
-      // Order number patterns
-      if (/(?:order|ord|#)\s*:?\s*([a-zA-Z0-9]+)/i.test(line) && !result.orderNumber) {
-        const match = line.match(/(?:order|ord|#)\s*:?\s*([a-zA-Z0-9]+)/i);
-        if (match) {
-          result.orderNumber = match[1];
-          identifiedLines.add(line);
-          continue;
-        }
-      }
-      
-      // Item details - eatables, cooking items, things (food/product related)
-      if (!result.itemDetails && (
-        // Explicit item keywords
-        /(?:item|product|food|dish|meal|order|qty|quantity|price|₹|rs)(?:\s*:|\s)/i.test(lowerLine) ||
-        // Quantity patterns (2x, 3 pieces, etc.)
-        /\d+\s*(?:x|piece|pcs|plate|bowl|glass|cup|bottle|packet|kg|gram|liter)/i.test(line) ||
-        // Food/cooking related terms
-        /(?:pizza|burger|rice|curry|dal|roti|bread|chicken|mutton|fish|vegetable|paneer|biryani|noodles|pasta|soup|salad|dessert|sweet|cake|coffee|tea|juice|water|oil|spice|masala|flour|sugar|salt)/i.test(lowerLine) ||
-        // Cooking items/utensils
-        /(?:pan|pot|cooker|mixer|grinder|knife|plate|bowl|spoon|cup|glass|bottle)/i.test(lowerLine)
-      )) {
-        result.itemDetails = line.replace(/(?:items?|products?|food|dishes?|meals?)\s*:?\s*/i, '').trim();
-        identifiedLines.add(line);
-        
-        // Try to extract price from item details
-        const priceMatch = line.match(/₹\s*(\d+(?:\.\d{2})?)|rs\s*(\d+(?:\.\d{2})?)|price\s*:?\s*(\d+(?:\.\d{2})?)/i);
-        if (priceMatch && !result.orderPrice) {
-          result.orderPrice = parseFloat(priceMatch[1] || priceMatch[2] || priceMatch[3] || '0');
-        }
-        continue;
-      }
-      
-      // Customer name - first line OR explicit name field
-      if (!result.customerName && (i === 0 || /(?:name|customer)\s*:/i.test(lowerLine))) {
-        result.customerName = line.replace(/(?:customer\s*)?name\s*:?\s*/i, '').trim();
-        identifiedLines.add(line);
-        continue;
-      }
-    }
-
-    // Step 2: Address detection - place names and pincodes (exclude item names and person names)
-    for (const line of lines) {
-      // Skip if already identified
-      if (identifiedLines.has(line)) continue;
-      
-      // Skip if it's just the extracted phone number
-      if (result.phoneNumber && line.includes(result.phoneNumber)) continue;
-      
-      // Skip if it's just the extracted order number
-      if (result.orderNumber && line.includes(result.orderNumber)) continue;
-      
-      // Skip very short lines that are likely not address
-      if (line.length < 3) continue;
-      
-      const lowerLine = line.toLowerCase();
-      
-      // Skip lines that look like food/item names (exclude from address)
-      if (/(?:pizza|burger|rice|curry|dal|roti|bread|chicken|mutton|fish|vegetable|paneer|biryani|noodles|pasta|soup|salad|dessert|sweet|cake|coffee|tea|juice|water|oil|spice|masala|flour|sugar|salt|pan|pot|cooker|mixer|grinder|knife|plate|bowl|spoon|cup|glass|bottle)/i.test(lowerLine)) {
-        continue;
-      }
-      
-      // Skip lines that look like person names (simple heuristic - short lines with only letters and common name patterns)
-      if (line.length < 20 && /^[a-zA-Z\s]+$/.test(line) && !/(?:road|street|area|colony|sector|block|flat|apartment|house|building|near|opp|opposite|behind|front|beside)/i.test(lowerLine) && !/\d/.test(line)) {
-        // Could be a person name, skip unless it has clear address indicators
-        continue;
-      }
-      
-      // Include as address if it contains:
-      // 1. Pincode patterns
-      // 2. Place/location indicators
-      // 3. Address keywords
-      // 4. Numbers with address context
-      if (
-        /\b\d{6}\b/.test(line) || // 6-digit pincode
-        /(?:address|addr|location|delivery|street|road|lane|avenue|area|colony|sector|block|flat|apartment|house|building|floor|room)/i.test(lowerLine) ||
-        /(?:near|opp|opposite|behind|front|beside|next to|close to)/i.test(lowerLine) ||
-        /\d+.*(?:st|nd|rd|th|street|road|lane|avenue|colony|sector|block|flat|apartment|house|building)/i.test(line) ||
-        // Indian city/state names and common localities
-        /(?:delhi|mumbai|bangalore|chennai|hyderabad|pune|kolkata|ahmedabad|surat|jaipur|lucknow|kanpur|nagpur|indore|thane|bhopal|visakhapatnam|pimpri|patna|vadodara|ghaziabad|ludhiana|agra|nashik|faridabad|meerut|rajkot|kalyan|vasai|varanasi|srinagar|aurangabad|dhanbad|amritsar|navi mumbai|allahabad|ranchi|howrah|coimbatore|jabalpur|gwalior|vijayawada|jodhpur|madurai|raipur|kota|chandigarh|gurgaon|noida|ghaziabad)/i.test(lowerLine) ||
-        /(?:maharashtra|karnataka|tamil nadu|gujarat|rajasthan|uttar pradesh|west bengal|madhya pradesh|bihar|odisha|telangana|kerala|punjab|haryana|jharkhand|assam|uttarakhand|himachal pradesh|tripura|meghalaya|manipur|nagaland|goa|arunachal pradesh|mizoram|sikkim)/i.test(lowerLine) ||
-        line.length > 15 // Longer lines likely to be addresses
-      ) {
-        // Clean up any explicit address prefixes
-        let cleanedLine = line.replace(/(?:address|addr|location|delivery)\s*:?\s*/i, '').trim();
-        
-        if (cleanedLine.length > 0) {
-          addressParts.push(cleanedLine);
-        }
-      }
-    }
-
-    // Combine all address parts
-    if (addressParts.length > 0) {
-      result.address = addressParts.join(', ');
-    }
-
-    // Fallback: if name is still empty, use first non-identified line that looks like a name
-    if (!result.customerName && lines.length > 0) {
-      const firstNameLike = lines.find(line => 
-        !identifiedLines.has(line) && 
-        !(result.phoneNumber && line.includes(result.phoneNumber)) &&
-        line.length < 30 && 
-        /^[a-zA-Z\s]+$/.test(line) &&
-        !addressParts.includes(line)
-      );
-      
-      if (firstNameLike) {
-        result.customerName = firstNameLike;
-        // Remove this from address if it was included
-        result.address = result.address.replace(firstNameLike, '').replace(/^,\s*|,\s*$/, '').replace(/,\s*,/g, ',').trim();
-      } else if (lines.length > 0) {
-        result.customerName = lines[0];
-      }
-    }
-
-    return result;
+    return {
+      customerName: extracted.name || '',
+      phoneNumber: extracted.phone ? extracted.phone.replace(/\D/g, '') : '',
+      address: extracted.address || '',
+      itemDetails: extracted.items ? extracted.items.join(', ') : '',
+      orderNumber,
+      deliveryStatus: 'pending pickup',
+      orderPrice
+    };
   };
 
   const handleParseText = () => {
