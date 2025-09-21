@@ -246,7 +246,7 @@ export const useDeliveryData = () => {
     return newDelivery;
   }, [dailyData]);
 
-  const updateDelivery = useCallback((deliveryId: string, updates: Partial<Delivery>) => {
+  const updateDelivery = useCallback(async (deliveryId: string, updates: Partial<Delivery>) => {
     const today = format(new Date(), 'yyyy-MM-dd');
     const updatedDailyData = dailyData.map(data => {
       if (data.date === today) {
@@ -270,9 +270,20 @@ export const useDeliveryData = () => {
     if (todayData) {
       StorageManager.updateDailyData(todayData);
     }
+
+    // Update in database using HybridStorageManager
+    try {
+      const updatedDelivery = todayData?.deliveries.find(d => d.id === deliveryId);
+      if (updatedDelivery) {
+        await HybridStorageManager.saveDelivery(updatedDelivery);
+        console.log('Delivery updated in both local storage and database');
+      }
+    } catch (error) {
+      console.error('Failed to update delivery in database:', error);
+    }
   }, [dailyData]);
 
-  const deleteDelivery = useCallback((deliveryId: string) => {
+  const deleteDelivery = useCallback(async (deliveryId: string) => {
     const today = format(new Date(), 'yyyy-MM-dd');
     const updatedDailyData = dailyData.map(data => {
       if (data.date === today) {
@@ -293,6 +304,14 @@ export const useDeliveryData = () => {
     const todayData = updatedDailyData.find(data => data.date === today);
     if (todayData) {
       StorageManager.updateDailyData(todayData);
+    }
+
+    // Delete from database using HybridStorageManager
+    try {
+      await HybridStorageManager.deleteDelivery(deliveryId);
+      console.log('Delivery deleted from both local storage and database');
+    } catch (error) {
+      console.error('Failed to delete delivery:', error);
     }
   }, [dailyData]);
 
