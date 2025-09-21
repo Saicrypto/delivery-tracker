@@ -134,13 +134,20 @@ export class HybridStorageManager {
   }
 
   static async deleteDelivery(deliveryId: string): Promise<void> {
+    console.log(`🗑️ Deleting delivery ${deliveryId}...`);
+    
     // Delete from local storage
     const today = MobileFix.getTodayString();
     const localData = StorageManager.getDailyData();
     const todayData = localData.find(d => d.date === today);
     
     if (todayData) {
+      const beforeCount = todayData.deliveries.length;
       const updatedDeliveries = todayData.deliveries.filter(d => d.id !== deliveryId);
+      const afterCount = updatedDeliveries.length;
+      
+      console.log(`📱 Local deletion: ${beforeCount} → ${afterCount} deliveries`);
+      
       const updatedSummary = StorageManager.calculateSummary(updatedDeliveries);
       const updatedTodayData = {
         ...todayData,
@@ -154,11 +161,14 @@ export class HybridStorageManager {
     if (this.isOnline) {
       try {
         await DatabaseService.deleteDelivery(deliveryId);
-        console.log('Delivery deleted from database');
+        console.log(`✅ Delivery ${deliveryId} deleted from database successfully`);
       } catch (error) {
-        console.error('Failed to delete delivery from database:', error);
+        console.error(`❌ Failed to delete delivery ${deliveryId} from database:`, error);
         this.isOnline = false;
+        throw error; // Re-throw to let caller know deletion failed
       }
+    } else {
+      console.log('⚠️ Offline - delivery deleted locally only');
     }
   }
 
@@ -170,6 +180,7 @@ export class HybridStorageManager {
     }
 
     try {
+      console.log('🔄 Syncing local data to database...');
       const localStores = StorageManager.getStores();
       const localData = StorageManager.getDailyData();
       
@@ -185,10 +196,32 @@ export class HybridStorageManager {
         }
       }
       
-      console.log('Data synced to database successfully');
+      console.log('✅ Local data synced to database');
     } catch (error) {
-      console.error('Failed to sync data to database:', error);
+      console.error('❌ Failed to sync local data to database:', error);
       this.isOnline = false;
+    }
+  }
+
+  // Force refresh data from database (useful after deletions)
+  static async forceRefreshFromDatabase(): Promise<void> {
+    if (!this.isOnline) {
+      console.log('Cannot refresh - database offline');
+      return;
+    }
+
+    try {
+      console.log('🔄 Force refreshing data from database...');
+      const { DataSyncManager } = await import('./dataSync');
+      const { dailyData, stores } = await DataSyncManager.forceSyncFromDatabase();
+      
+      // Update local storage with fresh data
+      StorageManager.saveStores(stores);
+      dailyData.forEach(dayData => StorageManager.updateDailyData(dayData));
+      
+      console.log('✅ Data refreshed from database');
+    } catch (error) {
+      console.error('❌ Failed to refresh data from database:', error);
     }
   }
 

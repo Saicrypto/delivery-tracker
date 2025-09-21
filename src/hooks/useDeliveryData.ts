@@ -310,6 +310,16 @@ export const useDeliveryData = () => {
     try {
       await HybridStorageManager.deleteDelivery(deliveryId);
       console.log('Delivery deleted from both local storage and database');
+      
+      // Force refresh to ensure cross-device sync
+      setTimeout(async () => {
+        try {
+          await HybridStorageManager.forceRefreshFromDatabase();
+          console.log('Data refreshed after deletion for cross-device sync');
+        } catch (error) {
+          console.error('Failed to refresh after deletion:', error);
+        }
+      }, 1000); // Small delay to ensure database operation completes
     } catch (error) {
       console.error('Failed to delete delivery:', error);
     }

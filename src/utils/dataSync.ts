@@ -28,15 +28,22 @@ export class DataSyncManager {
         deliveriesByDate[delivery.date].push(delivery);
       });
       
-      // Merge DB deliveries with local for today (avoid wiping un-synced local)
+      // Merge DB deliveries with local for today (handle deletions properly)
       const today = MobileFix.getTodayString();
       const localToday = localDailyData.find(d => d.date === today)?.deliveries || [];
       const dbToday = deliveriesByDate[today] || [];
 
-      // Index by id to merge
-      const mergedTodayMap: Record<string, Delivery> = {};
-      [...dbToday, ...localToday].forEach(d => { mergedTodayMap[d.id] = d; });
-      const mergedToday = Object.values(mergedTodayMap);
+      // Create a set of DB delivery IDs for quick lookup
+      const dbDeliveryIds = new Set(dbToday.map(d => d.id));
+      
+      // Merge strategy:
+      // 1. Keep all DB deliveries (they are the source of truth for deletions)
+      // 2. Add local deliveries that don't exist in DB (new/unsynced)
+      const mergedToday: Delivery[] = [
+        ...dbToday, // All database deliveries (including updates)
+        ...localToday.filter(local => !dbDeliveryIds.has(local.id)) // New local deliveries not in DB
+      ];
+      
       deliveriesByDate[today] = mergedToday;
 
       // Create DailyData objects
