@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
-import { Download, RefreshCw } from 'lucide-react';
+import { Download, RefreshCw, FileText } from 'lucide-react';
 import { HybridStorageManager } from '../utils/hybridStorage';
+import { Delivery } from '../types';
 
 interface DataManagerProps {
   onClose: () => void;
@@ -31,7 +32,7 @@ export const DataManager: React.FC<DataManagerProps> = ({
       const blob = new Blob([JSON.stringify(exportData, null, 2)], {
         type: 'application/json'
       });
-      
+
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
@@ -43,6 +44,83 @@ export const DataManager: React.FC<DataManagerProps> = ({
     } catch (error) {
       console.error('Export failed:', error);
       alert('Export failed. Please try again.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const exportCSV = () => {
+    setIsExporting(true);
+    try {
+      // Flatten all deliveries from dailyData
+      const allDeliveries: Delivery[] = dailyData.flatMap((day: any) => day.deliveries || []);
+
+      if (allDeliveries.length === 0) {
+        alert('No delivery data to export');
+        setIsExporting(false);
+        return;
+      }
+
+      // Create CSV headers (excluding itemDetails as requested)
+      const headers = [
+        'Date',
+        'Store Name',
+        'Customer Name',
+        'Phone Number',
+        'Address',
+        'Order Number',
+        'Order Price',
+        'Delivery Status',
+        'Total Deliveries',
+        'Delivered',
+        'Pending',
+        'Bills',
+        'Total Amount',
+        'Paid Amount',
+        'Pending Amount',
+        'Overdue Amount'
+      ];
+
+      // Create CSV rows
+      const rows = allDeliveries.map(delivery => [
+        delivery.date,
+        delivery.storeName,
+        delivery.customerName,
+        delivery.phoneNumber,
+        delivery.address,
+        delivery.orderNumber,
+        delivery.orderPrice,
+        delivery.deliveryStatus,
+        delivery.totalDeliveries,
+        delivery.delivered,
+        delivery.pending,
+        delivery.bills,
+        delivery.paymentStatus.total,
+        delivery.paymentStatus.paid,
+        delivery.paymentStatus.pending,
+        delivery.paymentStatus.overdue
+      ]);
+
+      // Combine headers and rows
+      const csvContent = [headers, ...rows]
+        .map(row => row.map(field => `"${field}"`).join(','))
+        .join('\n');
+
+      // Create and download CSV file
+      const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `delivery-tracker-data-${new Date().toISOString().split('T')[0]}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+
+      alert(`✅ CSV exported successfully with ${allDeliveries.length} deliveries`);
+    } catch (error) {
+      console.error('CSV export failed:', error);
+      alert('CSV export failed. Please try again.');
     } finally {
       setIsExporting(false);
     }
@@ -103,16 +181,29 @@ export const DataManager: React.FC<DataManagerProps> = ({
           <div className="border border-gray-200 rounded-lg p-4">
             <h3 className="font-semibold text-gray-900 mb-2">Export Data</h3>
             <p className="text-sm text-gray-600 mb-3">
-              Download your data as a JSON file for backup purposes.
+              Download your data as JSON or CSV format.
             </p>
-            <button
-              onClick={exportData}
-              disabled={isExporting}
-              className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
-            >
-              <Download className="h-4 w-4" />
-              <span>{isExporting ? 'Exporting...' : 'Export Data'}</span>
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={exportData}
+                disabled={isExporting}
+                className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50 w-full"
+              >
+                <Download className="h-4 w-4" />
+                <span>{isExporting ? 'Exporting...' : 'Export JSON Backup'}</span>
+              </button>
+              <button
+                onClick={exportCSV}
+                disabled={isExporting}
+                className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 w-full"
+              >
+                <FileText className="h-4 w-4" />
+                <span>{isExporting ? 'Exporting...' : 'Export CSV Data'}</span>
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-2">
+              CSV export excludes item details as requested and includes all delivery information.
+            </p>
           </div>
 
           {/* Database Management */}

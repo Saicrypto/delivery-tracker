@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, BarChart3 } from 'lucide-react';
+import { Plus, BarChart3, Users } from 'lucide-react';
 import { Header } from './components/Header';
 import { SummaryDashboard } from './components/SummaryDashboard';
 import { DeliveryCard } from './components/DeliveryCard';
 import { GroupedDeliveries } from './components/GroupedDeliveries';
 import { StoreForm } from './components/StoreForm';
+import { BulkOrderForm } from './components/BulkOrderForm';
 import { ChartsSection } from './components/ChartsSection';
 import { DebugInfo } from './components/DebugInfo';
 import { DataManager } from './components/DataManager';
@@ -33,6 +34,7 @@ function App() {
   } = useDeliveryData();
 
   const [showStoreForm, setShowStoreForm] = useState(false);
+  const [showBulkOrderForm, setShowBulkOrderForm] = useState(false);
   const [showCharts, setShowCharts] = useState(false);
   const [showDebug, setShowDebug] = useState(false);
   const [showDataManager, setShowDataManager] = useState(false);
@@ -45,6 +47,19 @@ function App() {
 
   const currentData = getDataForView();
   const todayData = getTodayData();
+
+  // Bulk add deliveries handler
+  const handleBulkAddDeliveries = async (deliveries: any[]) => {
+    try {
+      for (const delivery of deliveries) {
+        await addDelivery(delivery);
+      }
+      alert(`✅ Successfully added ${deliveries.length} deliveries!`);
+    } catch (error) {
+      console.error('Error adding bulk deliveries:', error);
+      alert('❌ Error adding deliveries. Please check console for details.');
+    }
+  };
 
   if (loading) {
     return (
@@ -77,6 +92,13 @@ function App() {
             >
               <Plus className="h-5 w-5 mr-2" />
               Add Delivery
+            </button>
+            <button
+              onClick={() => setShowBulkOrderForm(true)}
+              className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
+            >
+              <Users className="h-5 w-5 mr-2" />
+              Bulk Orders
             </button>
             <button
               onClick={() => setShowCharts(!showCharts)}
@@ -186,6 +208,17 @@ function App() {
             onDeleteStore={deleteStore}
             stores={stores}
             onClose={() => setShowStoreForm(false)}
+          />
+        )}
+
+        {/* Bulk Order Form Modal */}
+        {showBulkOrderForm && (
+          <BulkOrderForm
+            onSubmit={handleBulkAddDeliveries}
+            onAddStore={addStore}
+            onDeleteStore={deleteStore}
+            stores={stores}
+            onClose={() => setShowBulkOrderForm(false)}
           />
         )}
 
