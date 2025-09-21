@@ -184,19 +184,25 @@ export const useDeliveryData = () => {
           if (hasChanges) {
             console.log('📊 Cross-device changes detected, syncing...');
             console.log(`Database: ${dbDeliveries.length} deliveries, Local: ${localDeliveries.length} deliveries`);
+            console.log('Database delivery IDs:', Array.from(dbIds));
+            console.log('Local delivery IDs:', Array.from(localIds));
             
             // Update today's data with database state
             const updatedDailyData = dailyData.map(dayData => {
               if (dayData.date === today) {
-                // Merge: prioritize database for deletions, keep new local ones
-                const mergedDeliveries = [
-                  ...dbDeliveries, // Database deliveries (source of truth)
-                  ...localDeliveries.filter(local => !dbIds.has(local.id)) // New local deliveries not in DB
-                ];
+                // Database is the source of truth - use it as the primary source
+                // Only add local deliveries that are truly new (not in database yet)
+                const newLocalDeliveries = localDeliveries.filter(local => {
+                  // Only keep local deliveries that don't exist in database
+                  return !dbIds.has(local.id);
+                });
                 
+                console.log(`🔄 Merging: ${dbDeliveries.length} from DB + ${newLocalDeliveries.length} new local = ${dbDeliveries.length + newLocalDeliveries.length} total`);
+                
+                const mergedDeliveries = [...dbDeliveries, ...newLocalDeliveries];
                 const updatedSummary = StorageManager.calculateSummary(mergedDeliveries);
                 
-                // Update local storage too
+                // Update local storage to match the merged state
                 const updatedTodayData = {
                   ...dayData,
                   deliveries: mergedDeliveries,
@@ -217,7 +223,7 @@ export const useDeliveryData = () => {
         } catch (error) {
           console.error('❌ Periodic sync failed:', error);
         }
-      }, 30000); // 30 seconds
+      }, 60000); // 60 seconds (reduced frequency to avoid too many syncs)
     };
 
     // Start periodic sync after a short delay
@@ -266,15 +272,19 @@ export const useDeliveryData = () => {
           // Update today's data with database state
           const updatedDailyData = dailyData.map(dayData => {
             if (dayData.date === today) {
-              // Merge: prioritize database for deletions, keep new local ones
-              const mergedDeliveries = [
-                ...dbDeliveries, // Database deliveries (source of truth)
-                ...localDeliveries.filter(local => !dbIds.has(local.id)) // New local deliveries not in DB
-              ];
+              // Database is the source of truth - use it as the primary source
+              // Only add local deliveries that are truly new (not in database yet)
+              const newLocalDeliveries = localDeliveries.filter(local => {
+                // Only keep local deliveries that don't exist in database
+                return !dbIds.has(local.id);
+              });
               
+              console.log(`🔄 Focus sync merging: ${dbDeliveries.length} from DB + ${newLocalDeliveries.length} new local = ${dbDeliveries.length + newLocalDeliveries.length} total`);
+              
+              const mergedDeliveries = [...dbDeliveries, ...newLocalDeliveries];
               const updatedSummary = StorageManager.calculateSummary(mergedDeliveries);
               
-              // Update local storage too
+              // Update local storage to match the merged state
               const updatedTodayData = {
                 ...dayData,
                 deliveries: mergedDeliveries,
