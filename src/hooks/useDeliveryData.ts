@@ -311,23 +311,14 @@ export const useDeliveryData = () => {
       await HybridStorageManager.deleteDelivery(deliveryId);
       console.log('Delivery deleted from both local storage and database');
       
-      // Force refresh to ensure cross-device sync and update UI
-      try {
-        await HybridStorageManager.forceRefreshFromDatabase();
-        console.log('Data refreshed after deletion for cross-device sync');
-        
-        // Reload data to update UI
-        const freshDailyData = await HybridStorageManager.getDailyData();
-        const { StorageManager } = await import('../utils/storage');
-        const freshStores = StorageManager.getStores();
-        setDailyData(freshDailyData);
-        setStores(freshStores);
-        console.log('UI updated with fresh data after deletion');
-      } catch (refreshError) {
-        console.error('Failed to refresh after deletion:', refreshError);
-      }
+      // No need for aggressive refresh - the local state is already updated
+      // Database deletion will be reflected on other devices when they sync
     } catch (error) {
       console.error('Failed to delete delivery:', error);
+      // If database deletion failed, we should revert the local deletion
+      window.alert('Failed to delete delivery. Please try again.');
+      // Refresh to restore the deleted item
+      window.location.reload();
     }
   }, [dailyData]);
 
