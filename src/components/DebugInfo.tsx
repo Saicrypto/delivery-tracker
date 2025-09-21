@@ -4,6 +4,7 @@ import { HybridStorageManager } from '../utils/hybridStorage';
 import { DatabaseTester } from '../utils/databaseTest';
 import { DataSyncManager } from '../utils/dataSync';
 import { MobileFix } from '../utils/mobileFix';
+import { SyncDebug } from '../utils/syncDebug';
 
 interface DebugInfoProps {
   isVisible: boolean;
@@ -44,6 +45,38 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
       setTestResult(`${result.message}\n${JSON.stringify(result.details, null, 2)}`);
     } catch (error) {
       setTestResult(`❌ Test failed: ${error}`);
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const runSyncDebug = async () => {
+    setIsTesting(true);
+    setTestResult('');
+
+    try {
+      const result = await SyncDebug.debugTodayDeliveries();
+      setTestResult(`${result.message}\n${JSON.stringify(result.details, null, 2)}`);
+    } catch (error) {
+      setTestResult(`❌ Sync debug failed: ${error}`);
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  const forceResyncToday = async () => {
+    setIsTesting(true);
+    setTestResult('');
+
+    try {
+      const result = await SyncDebug.forceResyncToday();
+      setTestResult(result.message);
+      // Refresh data after resync
+      if (onRefreshData) {
+        setTimeout(onRefreshData, 1000);
+      }
+    } catch (error) {
+      setTestResult(`❌ Force resync failed: ${error}`);
     } finally {
       setIsTesting(false);
     }
@@ -147,6 +180,27 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
             </button>
           )}
           
+          {/* Sync Debug Section */}
+          <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
+            <div className="text-xs font-semibold text-gray-700">Sync Debug:</div>
+
+            <button
+              onClick={runSyncDebug}
+              disabled={isTesting}
+              className="w-full px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 disabled:opacity-50"
+            >
+              {isTesting ? 'Debugging...' : 'Debug Today Sync'}
+            </button>
+
+            <button
+              onClick={forceResyncToday}
+              disabled={isTesting}
+              className="w-full px-2 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 disabled:opacity-50"
+            >
+              {isTesting ? 'Resyncing...' : 'Force Resync Today'}
+            </button>
+          </div>
+
           {onClearAndResync && (
             <button
               onClick={onClearAndResync}
