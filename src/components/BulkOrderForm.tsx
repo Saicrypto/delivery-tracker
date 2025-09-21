@@ -204,7 +204,7 @@ export const BulkOrderForm: React.FC<BulkOrderFormProps> = ({
       if (selectedStore?.pricePerOrder) {
         newOrders.forEach(order => {
           if (!order.orderPrice) {
-            order.orderPrice = selectedStore.pricePerOrder;
+            order.orderPrice = selectedStore.pricePerOrder || 0;
           }
         });
       }
@@ -222,7 +222,7 @@ export const BulkOrderForm: React.FC<BulkOrderFormProps> = ({
       if (selectedStore?.pricePerOrder) {
         setOrders(prev => prev.map(order => ({
           ...order,
-          orderPrice: order.orderPrice || selectedStore.pricePerOrder || 0
+          orderPrice: order.orderPrice || (selectedStore.pricePerOrder || 0)
         })));
       }
     }

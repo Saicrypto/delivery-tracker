@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Plus, BarChart3, Users } from 'lucide-react';
+import { Plus, BarChart3, Package } from 'lucide-react';
 import { Header } from './components/Header';
 import { SummaryDashboard } from './components/SummaryDashboard';
 import { DeliveryCard } from './components/DeliveryCard';
@@ -97,7 +97,7 @@ function App() {
               onClick={() => setShowBulkOrderForm(true)}
               className="inline-flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
             >
-              <Users className="h-5 w-5 mr-2" />
+              <Package className="h-5 w-5 mr-2" />
               Bulk Orders
             </button>
             <button
