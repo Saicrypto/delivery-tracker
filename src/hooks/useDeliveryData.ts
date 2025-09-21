@@ -307,6 +307,28 @@ export const useDeliveryData = () => {
     }
   }, [isOnline]);
 
+  const deleteStore = useCallback(async (storeId: string) => {
+    if (!isOnline) {
+      throw new Error('Database connection required');
+    }
+
+    console.log(`🗑️ Deleting store ${storeId}...`);
+
+    try {
+      await HybridStorageManager.deleteStore(storeId);
+      
+      // Refresh stores from database
+      const freshStores = await HybridStorageManager.getStores();
+      setStores(freshStores);
+      
+      console.log('✅ Store deleted and data refreshed');
+    } catch (error) {
+      console.error('❌ Failed to delete store:', error);
+      alert('Failed to delete store. Please try again.');
+      throw error;
+    }
+  }, [isOnline]);
+
   const getDataForView = useCallback(() => {
     switch (viewMode) {
       case 'weekly':
@@ -376,6 +398,7 @@ export const useDeliveryData = () => {
     getDataForView,
     addStore,
     updateStore,
+    deleteStore,
     addDelivery,
     updateDelivery,
     deleteDelivery,

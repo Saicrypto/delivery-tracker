@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { Store, Delivery } from '../types';
-import { X, Plus, FileText, Edit3 } from 'lucide-react';
+import { X, Plus, FileText, Edit3, Trash2 } from 'lucide-react';
 
 interface StoreFormProps {
   onSubmit: (delivery: Omit<Delivery, 'id'>) => void;
   onAddStore: (store: Omit<Store, 'id'>) => Promise<Store>;
+  onDeleteStore: (storeId: string) => Promise<void>;
   stores: Store[];
   onClose: () => void;
 }
@@ -22,6 +23,7 @@ interface ParsedData {
 export const StoreForm: React.FC<StoreFormProps> = ({
   onSubmit,
   onAddStore,
+  onDeleteStore,
   stores,
   onClose
 }) => {
@@ -49,7 +51,27 @@ export const StoreForm: React.FC<StoreFormProps> = ({
   // Text parsing
   const [rawText, setRawText] = useState('');
 
-  // Smart text parser
+  // Delete store handler
+  const handleDeleteStore = async (storeId: string) => {
+    const store = stores.find(s => s.id === storeId);
+    if (!store) return;
+    
+    const confirmDelete = window.confirm(`Are you sure you want to delete "${store.name}"? This action cannot be undone.`);
+    if (!confirmDelete) return;
+    
+    try {
+      await onDeleteStore(storeId);
+      // Reset selected store if it was the deleted one
+      if (selectedStoreId === storeId) {
+        setSelectedStoreId('');
+      }
+    } catch (error) {
+      console.error('Failed to delete store:', error);
+      alert('Failed to delete store. Please try again.');
+    }
+  };
+
+  // Smart text parser with improved address detection
   const parseCustomerData = (text: string): ParsedData => {
     const lines = text.split('\n').map(line => line.trim()).filter(line => line);
     const result: ParsedData = {
@@ -62,28 +84,35 @@ export const StoreForm: React.FC<StoreFormProps> = ({
       orderPrice: 0
     };
 
-    for (const line of lines) {
+    const addressParts: string[] = [];
+    let nameFound = false;
+    let phoneFound = false;
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i];
       const lowerLine = line.toLowerCase();
       
-      // Phone number patterns
-      if (/(\+?[\d\s\-()]{8,15})/.test(line) && !result.phoneNumber) {
+      // Phone number patterns (priority: extract first)
+      if (/(\+?[\d\s\-()]{8,15})/.test(line) && !phoneFound) {
         const match = line.match(/(\+?[\d\s\-()]{8,15})/);
-        if (match) result.phoneNumber = match[1].replace(/\D/g, '');
+        if (match) {
+          result.phoneNumber = match[1].replace(/\D/g, '');
+          phoneFound = true;
+          continue;
+        }
       }
       
       // Order number patterns
-      else if (/(?:order|ord|#)\s*:?\s*([a-zA-Z0-9]+)/i.test(line) && !result.orderNumber) {
+      if (/(?:order|ord|#)\s*:?\s*([a-zA-Z0-9]+)/i.test(line) && !result.orderNumber) {
         const match = line.match(/(?:order|ord|#)\s*:?\s*([a-zA-Z0-9]+)/i);
-        if (match) result.orderNumber = match[1];
-      }
-      
-      // Address patterns (longer lines with address keywords)
-      else if ((/address|addr|location|delivery/i.test(lowerLine) || line.length > 20) && !result.address && !/phone|order|name|item/i.test(lowerLine)) {
-        result.address = line.replace(/address\s*:?\s*/i, '').trim();
+        if (match) {
+          result.orderNumber = match[1];
+          continue;
+        }
       }
       
       // Item details (contains product/item keywords or has quantity/price indicators)
-      else if ((/item|product|qty|quantity|price|₹|rs/i.test(lowerLine) || /\d+\s*x\s*/i.test(line)) && !result.itemDetails) {
+      if ((/item|product|qty|quantity|price|₹|rs/i.test(lowerLine) || /\d+\s*x\s*/i.test(line)) && !result.itemDetails) {
         result.itemDetails = line.replace(/items?\s*:?\s*/i, '').trim();
         
         // Try to extract price from item details
@@ -91,17 +120,63 @@ export const StoreForm: React.FC<StoreFormProps> = ({
         if (priceMatch && !result.orderPrice) {
           result.orderPrice = parseFloat(priceMatch[1] || priceMatch[2] || priceMatch[3] || '0');
         }
+        continue;
       }
       
-      // Customer name (first non-matched line or contains name keywords)
-      else if ((/name|customer/i.test(lowerLine) || (!result.customerName && line.length < 50 && !/\d/.test(line))) && !result.customerName) {
+      // Customer name (first line or contains name keywords)
+      if (!nameFound && (i === 0 || /name|customer/i.test(lowerLine))) {
         result.customerName = line.replace(/(?:customer\s*)?name\s*:?\s*/i, '').trim();
+        nameFound = true;
+        continue;
       }
+      
+      // Address detection - improved logic
+      // Skip if it's already identified as something else
+      if (phoneFound && line.includes(result.phoneNumber)) continue;
+      if (result.orderNumber && line.includes(result.orderNumber)) continue;
+      if (result.itemDetails && line === result.itemDetails) continue;
+      if (nameFound && line === result.customerName) continue;
+      
+      // Collect potential address parts
+      // Address indicators: explicit keywords or longer descriptive text
+      if (
+        /address|addr|location|delivery|street|road|area|colony|sector|block|flat|apartment|house|building/i.test(lowerLine) ||
+        line.length > 15 || // Longer lines likely to be addresses
+        /\d+.*(?:st|nd|rd|th|street|road|lane|avenue|colony|sector|block)/i.test(line) || // Street patterns
+        /(?:near|opp|opposite|behind|front|beside)/i.test(lowerLine) // Location indicators
+      ) {
+        // Clean up address keywords
+        const cleanedLine = line.replace(/(?:address|addr|location|delivery)\s*:?\s*/i, '').trim();
+        if (cleanedLine.length > 0) {
+          addressParts.push(cleanedLine);
+        }
+      }
+    }
+
+    // Combine address parts
+    if (addressParts.length > 0) {
+      result.address = addressParts.join(', ');
     }
 
     // Fallback: if name is empty, use first line
     if (!result.customerName && lines.length > 0) {
       result.customerName = lines[0];
+    }
+
+    // If no explicit address found but we have unidentified lines, use them as address
+    if (!result.address && lines.length > 1) {
+      const unidentifiedLines = lines.filter(line => {
+        const lowerLine = line.toLowerCase();
+        return line !== result.customerName &&
+               !line.includes(result.phoneNumber) &&
+               !line.includes(result.orderNumber) &&
+               line !== result.itemDetails &&
+               !/(?:order|ord|#|item|product|qty|quantity|price|₹|rs)/i.test(lowerLine);
+      });
+      
+      if (unidentifiedLines.length > 0) {
+        result.address = unidentifiedLines.join(', ');
+      }
     }
 
     return result;
@@ -259,17 +334,28 @@ export const StoreForm: React.FC<StoreFormProps> = ({
                 <option value="">Select a store</option>
                 {stores.map(store => (
                   <option key={store.id} value={store.id}>
-                    {store.name}
+                    {store.name} {store.pricePerOrder ? `(₹${store.pricePerOrder})` : ''}
                   </option>
                 ))}
               </select>
               <button
                 type="button"
                 onClick={() => setShowNewStoreForm(true)}
-                className="px-3 py-2 bg-gray-100 text-gray-700 rounded-md hover:bg-gray-200 transition-colors"
+                className="px-3 py-2 bg-green-100 text-green-700 rounded-md hover:bg-green-200 transition-colors"
+                title="Add New Store"
               >
                 <Plus className="h-5 w-5" />
               </button>
+              {selectedStoreId && (
+                <button
+                  type="button"
+                  onClick={() => handleDeleteStore(selectedStoreId)}
+                  className="px-3 py-2 bg-red-100 text-red-700 rounded-md hover:bg-red-200 transition-colors"
+                  title="Delete Selected Store"
+                >
+                  <Trash2 className="h-5 w-5" />
+                </button>
+              )}
             </div>
           </div>
 
@@ -467,6 +553,35 @@ Order: ORD-001
                     required
                   />
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* Existing Stores Management */}
+          {stores.length > 0 && (
+            <div className="bg-gray-50 p-4 rounded-lg">
+              <h3 className="font-medium text-gray-900 mb-3">Manage Stores</h3>
+              <div className="space-y-2 max-h-40 overflow-y-auto">
+                {stores.map(store => (
+                  <div key={store.id} className="flex items-center justify-between bg-white p-3 rounded border">
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-900">{store.name}</div>
+                      <div className="text-sm text-gray-600">
+                        {store.address && <span>{store.address}</span>}
+                        {store.contact && <span className="ml-2">• {store.contact}</span>}
+                        {store.pricePerOrder && <span className="ml-2">• ₹{store.pricePerOrder}/order</span>}
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteStore(store.id)}
+                      className="ml-3 p-2 text-red-600 hover:bg-red-50 rounded"
+                      title={`Delete ${store.name}`}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
               </div>
             </div>
           )}

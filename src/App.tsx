@@ -24,6 +24,7 @@ function App() {
     getDataForView,
     getTodayData,
     addStore,
+    deleteStore,
     addDelivery,
     updateDelivery,
     deleteDelivery,
@@ -182,6 +183,7 @@ function App() {
           <StoreForm
             onSubmit={addDelivery}
             onAddStore={addStore}
+            onDeleteStore={deleteStore}
             stores={stores}
             onClose={() => setShowStoreForm(false)}
           />
