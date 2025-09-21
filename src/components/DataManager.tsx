@@ -1,151 +1,61 @@
 import React, { useState } from 'react';
-import { Download, Upload, Trash2, Share2, Copy, RefreshCw } from 'lucide-react';
-import { StorageManager } from '../utils/storage';
+import { Download, RefreshCw } from 'lucide-react';
 import { HybridStorageManager } from '../utils/hybridStorage';
-import { URLDataSharing } from '../utils/cloudStorage';
 
 interface DataManagerProps {
   onClose: () => void;
   onDataChange: () => void;
+  dailyData?: any[];
+  stores?: any[];
 }
 
-export const DataManager: React.FC<DataManagerProps> = ({ onClose, onDataChange }) => {
+export const DataManager: React.FC<DataManagerProps> = ({ 
+  onClose, 
+  onDataChange,
+  dailyData = [],
+  stores = []
+}) => {
   const [isExporting, setIsExporting] = useState(false);
-  const [isImporting, setIsImporting] = useState(false);
-  const [shareUrl, setShareUrl] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
 
   const exportData = () => {
     setIsExporting(true);
     try {
-      const dailyData = StorageManager.getDailyData();
-      const stores = StorageManager.getStores();
-      
       const exportData = {
         dailyData,
         stores,
         exportDate: new Date().toISOString(),
-        version: '1.0.0'
+        version: '2.0.0-database-only'
       };
 
-      const dataStr = JSON.stringify(exportData, null, 2);
-      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify(exportData, null, 2)], {
+        type: 'application/json'
+      });
       
-      const url = URL.createObjectURL(dataBlob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `delivery-tracker-backup-${new Date().toISOString().split('T')[0]}.json`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `delivery-tracker-export-${new Date().toISOString().split('T')[0]}.json`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
       URL.revokeObjectURL(url);
-      
-      alert('Data exported successfully!');
     } catch (error) {
-      console.error('Export error:', error);
-      alert('Failed to export data');
+      console.error('Export failed:', error);
+      alert('Export failed. Please try again.');
     } finally {
       setIsExporting(false);
     }
   };
 
-  const importData = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    setIsImporting(true);
-    const reader = new FileReader();
-    
-    reader.onload = (e) => {
-      try {
-        const content = e.target?.result as string;
-        const importData = JSON.parse(content);
-        
-        if (importData.dailyData && importData.stores) {
-          StorageManager.saveDailyData(importData.dailyData);
-          StorageManager.saveStores(importData.stores);
-          onDataChange();
-          alert('Data imported successfully!');
-        } else {
-          alert('Invalid data format');
-        }
-      } catch (error) {
-        console.error('Import error:', error);
-        alert('Failed to import data');
-      } finally {
-        setIsImporting(false);
-      }
-    };
-    
-    reader.readAsText(file);
-  };
-
-  const clearAllData = () => {
-    if (window.confirm('Are you sure you want to clear all data? This cannot be undone!')) {
-      try {
-        StorageManager.saveDailyData([]);
-        StorageManager.saveStores([]);
-        onDataChange();
-        window.alert('All data cleared successfully!');
-      } catch (error) {
-        console.error('Clear error:', error);
-        window.alert('Failed to clear data');
-      }
-    }
-  };
-
-  const generateShareLink = () => {
-    try {
-      const dailyData = StorageManager.getDailyData();
-      const stores = StorageManager.getStores();
-      
-      const shareData = {
-        dailyData,
-        stores,
-        shareDate: new Date().toISOString(),
-        version: '1.0.0'
-      };
-
-      const url = URLDataSharing.shareData(shareData);
-      setShareUrl(url);
-      
-      // Copy to clipboard
-      navigator.clipboard.writeText(url).then(() => {
-        window.alert('Share link copied to clipboard!');
-      }).catch(() => {
-        window.alert('Share link generated! Copy it manually.');
-      });
-    } catch (error) {
-      console.error('Share error:', error);
-      window.alert('Failed to generate share link');
-    }
-  };
-
-  const loadSharedData = () => {
-    try {
-      const sharedData = URLDataSharing.loadSharedData();
-      if (sharedData && sharedData.dailyData && sharedData.stores) {
-        StorageManager.saveDailyData(sharedData.dailyData);
-        StorageManager.saveStores(sharedData.stores);
-        onDataChange();
-        window.alert('Shared data loaded successfully!');
-      } else {
-        window.alert('No shared data found in URL');
-      }
-    } catch (error) {
-      console.error('Load shared data error:', error);
-      window.alert('Failed to load shared data');
-    }
-  };
-
-  const syncToDatabase = async () => {
+  const testDatabaseConnection = async () => {
     setIsSyncing(true);
     try {
-      await HybridStorageManager.syncToDatabase();
-      window.alert('Data synced to database successfully!');
+      const isConnected = await HybridStorageManager.testConnection();
+      alert(isConnected ? 'Database connection successful!' : 'Database connection failed!');
     } catch (error) {
-      console.error('Sync error:', error);
-      window.alert('Failed to sync data to database');
+      console.error('Connection test failed:', error);
+      alert('Database connection test failed!');
     } finally {
       setIsSyncing(false);
     }
@@ -155,161 +65,87 @@ export const DataManager: React.FC<DataManagerProps> = ({ onClose, onDataChange 
     setIsSyncing(true);
     try {
       await HybridStorageManager.reconnect();
-      window.alert('Database reconnected successfully!');
+      onDataChange(); // Refresh data after reconnection
+      alert('Database reconnected successfully!');
     } catch (error) {
-      console.error('Reconnect error:', error);
-      window.alert('Failed to reconnect to database');
+      console.error('Reconnection failed:', error);
+      alert('Database reconnection failed!');
     } finally {
       setIsSyncing(false);
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-      <div className="bg-white rounded-lg max-w-md w-full p-6">
-        <div className="flex justify-between items-center mb-6">
-          <h2 className="text-xl font-semibold text-gray-900">Data Management</h2>
+    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+      <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
+        <div className="flex justify-between items-center mb-4">
+          <h2 className="text-xl font-bold text-gray-900">Data Management</h2>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-600"
+            className="text-gray-500 hover:text-gray-700"
           >
             ✕
           </button>
         </div>
-
+        
         <div className="space-y-4">
-          {/* Export Data */}
+          {/* Database Status */}
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+            <h3 className="font-semibold text-blue-900 mb-2">Database Status</h3>
+            <div className="text-sm text-blue-800 space-y-1">
+              <div>Daily Data: {dailyData.length} entries</div>
+              <div>Stores: {stores.length} stores</div>
+              <div>Mode: Database-only (no local storage)</div>
+            </div>
+          </div>
+
+          {/* Export Section */}
           <div className="border border-gray-200 rounded-lg p-4">
-            <h3 className="font-medium text-gray-900 mb-2">Export Data</h3>
+            <h3 className="font-semibold text-gray-900 mb-2">Export Data</h3>
             <p className="text-sm text-gray-600 mb-3">
-              Download all your delivery data as a backup file.
+              Download your data as a JSON file for backup purposes.
             </p>
             <button
               onClick={exportData}
               disabled={isExporting}
-              className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+              className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 disabled:opacity-50"
             >
-              <Download className="h-4 w-4 mr-2" />
-              {isExporting ? 'Exporting...' : 'Export Data'}
+              <Download className="h-4 w-4" />
+              <span>{isExporting ? 'Exporting...' : 'Export Data'}</span>
             </button>
           </div>
 
-          {/* Import Data */}
+          {/* Database Management */}
           <div className="border border-gray-200 rounded-lg p-4">
-            <h3 className="font-medium text-gray-900 mb-2">Import Data</h3>
-            <p className="text-sm text-gray-600 mb-3">
-              Upload a backup file to restore your data.
-            </p>
-            <input
-              type="file"
-              accept=".json"
-              onChange={importData}
-              disabled={isImporting}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md text-sm"
-            />
-            {isImporting && (
-              <p className="text-sm text-blue-600 mt-2">Importing data...</p>
-            )}
-          </div>
-
-          {/* Share Data */}
-          <div className="border border-blue-200 rounded-lg p-4">
-            <h3 className="font-medium text-blue-900 mb-2">Share Data</h3>
-            <p className="text-sm text-blue-600 mb-3">
-              Generate a shareable link to sync data across devices.
-            </p>
-            <button
-              onClick={generateShareLink}
-              className="w-full flex items-center justify-center px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-            >
-              <Share2 className="h-4 w-4 mr-2" />
-              Generate Share Link
-            </button>
-            {shareUrl && (
-              <div className="mt-3">
-                <p className="text-xs text-gray-600 mb-2">Share this link:</p>
-                <div className="flex">
-                  <input
-                    type="text"
-                    value={shareUrl}
-                    readOnly
-                    className="flex-1 px-2 py-1 text-xs border border-gray-300 rounded-l-md"
-                  />
-                  <button
-                    onClick={() => navigator.clipboard.writeText(shareUrl)}
-                    className="px-2 py-1 bg-gray-200 border border-gray-300 rounded-r-md hover:bg-gray-300"
-                  >
-                    <Copy className="h-3 w-3" />
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Load Shared Data */}
-          <div className="border border-green-200 rounded-lg p-4">
-            <h3 className="font-medium text-green-900 mb-2">Load Shared Data</h3>
-            <p className="text-sm text-green-600 mb-3">
-              Load data from a shared link (if URL contains shared data).
-            </p>
-            <button
-              onClick={loadSharedData}
-              className="w-full flex items-center justify-center px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700"
-            >
-              <Upload className="h-4 w-4 mr-2" />
-              Load from Shared Link
-            </button>
-          </div>
-
-          {/* Database Sync */}
-          <div className="border border-purple-200 rounded-lg p-4">
-            <h3 className="font-medium text-purple-900 mb-2">Database Sync</h3>
-            <p className="text-sm text-purple-600 mb-3">
-              Sync your local data to the online Turso database.
-            </p>
+            <h3 className="font-semibold text-gray-900 mb-2">Database Management</h3>
             <div className="space-y-2">
               <button
-                onClick={syncToDatabase}
+                onClick={testDatabaseConnection}
                 disabled={isSyncing}
-                className="w-full flex items-center justify-center px-4 py-2 bg-purple-600 text-white rounded-md hover:bg-purple-700 disabled:opacity-50"
+                className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:opacity-50 w-full"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-                {isSyncing ? 'Syncing...' : 'Sync to Database'}
+                <RefreshCw className="h-4 w-4" />
+                <span>{isSyncing ? 'Testing...' : 'Test Connection'}</span>
               </button>
+              
               <button
                 onClick={reconnectDatabase}
                 disabled={isSyncing}
-                className="w-full flex items-center justify-center px-4 py-2 bg-purple-500 text-white rounded-md hover:bg-purple-600 disabled:opacity-50"
+                className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded hover:bg-purple-700 disabled:opacity-50 w-full"
               >
-                <RefreshCw className={`h-4 w-4 mr-2 ${isSyncing ? 'animate-spin' : ''}`} />
-                Reconnect Database
+                <RefreshCw className="h-4 w-4" />
+                <span>{isSyncing ? 'Reconnecting...' : 'Reconnect Database'}</span>
               </button>
             </div>
           </div>
 
-          {/* Clear Data */}
-          <div className="border border-red-200 rounded-lg p-4">
-            <h3 className="font-medium text-red-900 mb-2">Clear All Data</h3>
-            <p className="text-sm text-red-600 mb-3">
-              Permanently delete all delivery data and stores.
+          {/* Info */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+            <h3 className="font-semibold text-yellow-900 mb-2">Database-Only Mode</h3>
+            <p className="text-sm text-yellow-800">
+              This app now operates exclusively with the Turso database. All data is stored online and synchronized across devices automatically. Local storage has been removed for better consistency.
             </p>
-            <button
-              onClick={clearAllData}
-              className="w-full flex items-center justify-center px-4 py-2 bg-red-600 text-white rounded-md hover:bg-red-700"
-            >
-              <Trash2 className="h-4 w-4 mr-2" />
-              Clear All Data
-            </button>
           </div>
-        </div>
-
-        <div className="mt-6 pt-4 border-t">
-          <button
-            onClick={onClose}
-            className="w-full px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-          >
-            Close
-          </button>
         </div>
       </div>
     </div>

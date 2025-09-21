@@ -1,10 +1,7 @@
 import React, { useState } from 'react';
-import { StorageManager } from '../utils/storage';
 import { HybridStorageManager } from '../utils/hybridStorage';
 import { DatabaseTester } from '../utils/databaseTest';
-import { DataSyncManager } from '../utils/dataSync';
-import { MobileFix } from '../utils/mobileFix';
-import { SyncDebug } from '../utils/syncDebug';
+import { format } from 'date-fns';
 
 interface DebugInfoProps {
   isVisible: boolean;
@@ -12,9 +9,19 @@ interface DebugInfoProps {
   onOpenDatabaseInspector?: () => void;
   onRefreshData?: () => void;
   onClearAndResync?: () => void;
+  dailyData?: any[];
+  stores?: any[];
 }
 
-export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpenDatabaseInspector, onRefreshData, onClearAndResync }) => {
+export const DebugInfo: React.FC<DebugInfoProps> = ({ 
+  isVisible, 
+  onToggle, 
+  onOpenDatabaseInspector, 
+  onRefreshData, 
+  onClearAndResync,
+  dailyData = [],
+  stores = []
+}) => {
   const [testResult, setTestResult] = useState<string>('');
   const [isTesting, setIsTesting] = useState(false);
 
@@ -29,12 +36,10 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
     );
   }
 
-  const dailyData = StorageManager.getDailyData();
-  const stores = StorageManager.getStores();
-  const isLocalStorageAvailable = StorageManager.isLocalStorageAvailable();
   const dbStatus = HybridStorageManager.getConnectionStatus();
-  const mobileInfo = MobileFix.getMobileDebugInfo();
-  const syncInfo = DataSyncManager.getDebugInfo();
+  const today = format(new Date(), 'yyyy-MM-dd');
+  const todayData = dailyData.find((d: any) => d.date === today);
+  const todayDeliveries = todayData?.deliveries?.length || 0;
 
   const runDatabaseTest = async () => {
     setIsTesting(true);
@@ -50,33 +55,15 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
     }
   };
 
-  const runSyncDebug = async () => {
+  const testDatabaseConnection = async () => {
     setIsTesting(true);
     setTestResult('');
 
     try {
-      const result = await SyncDebug.debugTodayDeliveries();
-      setTestResult(`${result.message}\n${JSON.stringify(result.details, null, 2)}`);
+      const isConnected = await HybridStorageManager.testConnection();
+      setTestResult(`Database connection: ${isConnected ? '✅ Connected' : '❌ Failed'}`);
     } catch (error) {
-      setTestResult(`❌ Sync debug failed: ${error}`);
-    } finally {
-      setIsTesting(false);
-    }
-  };
-
-  const forceResyncToday = async () => {
-    setIsTesting(true);
-    setTestResult('');
-
-    try {
-      const result = await SyncDebug.forceResyncToday();
-      setTestResult(result.message);
-      // Refresh data after resync
-      if (onRefreshData) {
-        setTimeout(onRefreshData, 1000);
-      }
-    } catch (error) {
-      setTestResult(`❌ Force resync failed: ${error}`);
+      setTestResult(`❌ Connection test failed: ${error}`);
     } finally {
       setIsTesting(false);
     }
@@ -103,9 +90,6 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
           <strong>DB Initialized:</strong> {dbStatus.dbInitialized ? '✅ Yes' : '❌ No'}
         </div>
         <div>
-          <strong>localStorage:</strong> {isLocalStorageAvailable ? '✅ Available' : '❌ Not Available'}
-        </div>
-        <div>
           <strong>Daily Data:</strong> {dailyData.length} entries
         </div>
         <div>
@@ -121,22 +105,13 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
           <strong>Viewport:</strong> {window.innerWidth}x{window.innerHeight}
         </div>
         <div>
-          <strong>Mobile:</strong> {mobileInfo.isMobile ? '✅ Yes' : '❌ No'}
+          <strong>Today:</strong> {today}
         </div>
         <div>
-          <strong>Mobile Browser:</strong> {mobileInfo.isMobileBrowser ? '✅ Yes' : '❌ No'}
+          <strong>Today Deliveries:</strong> {todayDeliveries}
         </div>
         <div>
-          <strong>localStorage Working:</strong> {mobileInfo.localStorageWorking ? '✅ Yes' : '❌ No'}
-        </div>
-        <div>
-          <strong>Today:</strong> {syncInfo.today}
-        </div>
-        <div>
-          <strong>Today Deliveries:</strong> {syncInfo.todayDeliveries}
-        </div>
-        <div>
-          <strong>Today Exists:</strong> {syncInfo.todayExists ? '✅ Yes' : '❌ No'}
+          <strong>Today Exists:</strong> {todayData ? '✅ Yes' : '❌ No'}
         </div>
         
         {dailyData.length > 0 && (
@@ -180,60 +155,16 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
             </button>
           )}
           
-          {/* Sync Debug Section */}
+          {/* Database Test Section */}
           <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
-            <div className="text-xs font-semibold text-gray-700">Sync Debug:</div>
+            <div className="text-xs font-semibold text-gray-700">Database Tests:</div>
 
             <button
-              onClick={runSyncDebug}
+              onClick={testDatabaseConnection}
               disabled={isTesting}
               className="w-full px-2 py-1 bg-purple-600 text-white text-xs rounded hover:bg-purple-700 disabled:opacity-50"
             >
-              {isTesting ? 'Debugging...' : 'Debug Today Sync'}
-            </button>
-
-            <button
-              onClick={forceResyncToday}
-              disabled={isTesting}
-              className="w-full px-2 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700 disabled:opacity-50"
-            >
-              {isTesting ? 'Resyncing...' : 'Force Resync Today'}
-            </button>
-
-            <button
-              onClick={async () => {
-                setIsTesting(true);
-                try {
-                  const { DeletionTest } = await import('../utils/deletionTest');
-                  await DeletionTest.testDeletionFlow();
-                } catch (error) {
-                  console.error('Deletion test failed:', error);
-                } finally {
-                  setIsTesting(false);
-                }
-              }}
-              disabled={isTesting}
-              className="w-full px-2 py-1 bg-red-600 text-white text-xs rounded hover:bg-red-700 disabled:opacity-50"
-            >
-              {isTesting ? 'Testing...' : 'Test Deletion Flow'}
-            </button>
-
-            <button
-              onClick={async () => {
-                setIsTesting(true);
-                try {
-                  const { DeletionTest } = await import('../utils/deletionTest');
-                  await DeletionTest.testCrossDeviceSync();
-                } catch (error) {
-                  console.error('Cross-device sync test failed:', error);
-                } finally {
-                  setIsTesting(false);
-                }
-              }}
-              disabled={isTesting}
-              className="w-full px-2 py-1 bg-green-600 text-white text-xs rounded hover:bg-green-700 disabled:opacity-50"
-            >
-              {isTesting ? 'Testing...' : 'Test Cross-Device Sync'}
+              {isTesting ? 'Testing...' : 'Test Database Connection'}
             </button>
           </div>
 
@@ -246,14 +177,6 @@ export const DebugInfo: React.FC<DebugInfoProps> = ({ isVisible, onToggle, onOpe
             </button>
           )}
           
-          {mobileInfo.isMobileBrowser && (
-            <button
-              onClick={() => MobileFix.forceRefreshData()}
-              className="w-full px-2 py-1 bg-orange-600 text-white text-xs rounded hover:bg-orange-700"
-            >
-              Force Refresh (Mobile Fix)
-            </button>
-          )}
 
 
           {testResult && (

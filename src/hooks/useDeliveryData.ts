@@ -1,12 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { DailyData, Store, Delivery, ViewMode } from '../types';
-import { StorageManager } from '../utils/storage';
 import { HybridStorageManager } from '../utils/hybridStorage';
-import { URLDataSharing } from '../utils/cloudStorage';
-import { DataSyncManager } from '../utils/dataSync';
-import { DeploymentFix } from '../utils/deploymentFix';
 import { format } from 'date-fns';
-import { MobileFix } from '../utils/mobileFix';
 
 export const useDeliveryData = () => {
   const [dailyData, setDailyData] = useState<DailyData[]>([]);
@@ -16,556 +11,358 @@ export const useDeliveryData = () => {
   const [loading, setLoading] = useState(true);
   const [isOnline, setIsOnline] = useState(false);
 
-  // Load initial data
+  // Load initial data from database only
   useEffect(() => {
     const loadData = async () => {
       try {
-        // Production-safe initialization
-        if (DeploymentFix.isVercel() || DeploymentFix.isProduction()) {
-          console.log('🌐 Production environment detected, using safe loading...');
-          
-          // Use safe data loading for production
-          const safeData = await DeploymentFix.safeDataLoad();
-          setDailyData(safeData.dailyData);
-          setStores(safeData.stores);
-          
-          // Ensure today's data exists
-          const today = MobileFix.getTodayString();
-          const todayExists = safeData.dailyData.some((data: any) => data.date === today);
-          
-          if (!todayExists) {
-            const newTodayData = StorageManager.createEmptyDailyData(new Date());
-            setDailyData(prev => [newTodayData, ...prev]);
-          }
-          
-          setLoading(false);
-
-          // Non-blocking DB init + background sync in production
-          setTimeout(async () => {
-            try {
-              console.log('🌐 Prod: initializing DB and syncing in background...');
-              await HybridStorageManager.initialize();
-              const statusProd = HybridStorageManager.getConnectionStatus();
-              setIsOnline(statusProd.isOnline);
-
-              if (statusProd.isOnline) {
-                const syncedData = await DataSyncManager.forceSyncFromDatabase();
-                const finalDailyData = DataSyncManager.ensureTodayData(syncedData.dailyData);
-                setDailyData(finalDailyData);
-                setStores(syncedData.stores);
-                console.log('✅ Prod background sync completed');
-              } else {
-                console.warn('⚠️ Prod: DB offline, using local-only data');
-              }
-            } catch (err) {
-              console.warn('⚠️ Prod background init/sync failed:', err);
-            }
-          }, 800);
-
-          return;
-        }
-
-        // Development environment - full initialization
+        console.log('🌐 Database-only mode: Initializing connection...');
+        
+        // Initialize database connection
         await HybridStorageManager.initialize();
         const status = HybridStorageManager.getConnectionStatus();
         setIsOnline(status.isOnline);
 
-        // Check for shared data first
-        if (URLDataSharing.hasSharedData()) {
-          const sharedData = URLDataSharing.loadSharedData();
-          if (sharedData && sharedData.dailyData && sharedData.stores) {
-            StorageManager.saveDailyData(sharedData.dailyData);
-            StorageManager.saveStores(sharedData.stores);
-            setDailyData(sharedData.dailyData);
-            setStores(sharedData.stores);
-            setLoading(false);
-            return;
-          }
+        if (!status.isOnline) {
+          throw new Error('Database connection required for application functionality');
         }
 
-        // Load data safely with proper error handling
-        try {
-          console.log('📱 Loading data from local storage...');
-          
-          // Load from local storage first (safe approach)
-          const storedDailyData = StorageManager.getDailyData();
-          const storedStores = StorageManager.getStores();
-          
-          console.log('Loaded daily data:', storedDailyData.length, 'entries');
-          console.log('Loaded stores:', storedStores.length, 'stores');
-          
-          setDailyData(storedDailyData);
-          setStores(storedStores);
-          
-          // Create today's data if it doesn't exist
-          const today = MobileFix.getTodayString();
-          const todayExists = storedDailyData.some(data => data.date === today);
-          
-          if (!todayExists) {
-            console.log('Creating today\'s data entry:', today);
-            const newTodayData = StorageManager.createEmptyDailyData(new Date());
-            StorageManager.updateDailyData(newTodayData);
-            setDailyData(prev => [newTodayData, ...prev]);
-          } else {
-            const todayData = storedDailyData.find(data => data.date === today);
-            console.log('Today\'s data already exists:', today, 'with', todayData?.deliveries.length || 0, 'deliveries');
-          }
-          
-          // Try to sync with database in background (non-blocking)
-          setTimeout(async () => {
-            try {
-              console.log('🔄 Background sync from database...');
-              const syncedData = await DataSyncManager.forceSyncFromDatabase();
-              const finalDailyData = DataSyncManager.ensureTodayData(syncedData.dailyData);
-              
-              setDailyData(finalDailyData);
-              setStores(syncedData.stores);
-              
-              console.log('✅ Background sync completed');
-            } catch (error) {
-              console.warn('⚠️ Background sync failed:', error);
+        console.log('📊 Loading data from database...');
+        
+        // Load data from database
+        const [dbDailyData, dbStores] = await Promise.all([
+          HybridStorageManager.getDailyData(),
+          HybridStorageManager.getStores()
+        ]);
+        
+        console.log(`✅ Loaded ${dbDailyData.length} days of data and ${dbStores.length} stores from database`);
+        
+        setDailyData(dbDailyData);
+        setStores(dbStores);
+        
+        // Ensure today's data exists
+        const today = format(new Date(), 'yyyy-MM-dd');
+        const todayExists = dbDailyData.some(data => data.date === today);
+        
+        if (!todayExists) {
+          console.log('📅 Creating today\'s data entry...');
+          const newTodayData: DailyData = {
+            date: today,
+            deliveries: [],
+            summary: {
+              totalStores: 0,
+              totalDeliveries: 0,
+              totalDelivered: 0,
+              totalPending: 0,
+              totalBills: 0,
+              totalRevenue: 0,
+              totalPaid: 0,
+              totalOutstanding: 0
             }
-          }, 1000);
-          
-        } catch (error) {
-          console.error('❌ Error loading local data:', error);
-          // Set empty data to prevent crash
-          setDailyData([]);
-          setStores([]);
+          };
+          setDailyData(prev => [newTodayData, ...prev]);
         }
-      } catch (error) {
-        console.error('Error loading data:', error);
-        // Fallback to local storage only
-        const storedDailyData = StorageManager.getDailyData();
-        const storedStores = StorageManager.getStores();
-        setDailyData(storedDailyData);
-        setStores(storedStores);
-      } finally {
+        
         setLoading(false);
+        console.log('✅ Database-only initialization completed');
+        
+      } catch (error) {
+        console.error('❌ Database initialization failed:', error);
+        setLoading(false);
+        setIsOnline(false);
+        
+        // Show user-friendly error
+        setTimeout(() => {
+          alert('Database connection failed. Please check your internet connection and refresh the page.');
+        }, 100);
       }
     };
 
     loadData();
   }, []);
 
-  // Periodic sync for cross-device updates
+  // Periodic data refresh from database (every 60 seconds)
   useEffect(() => {
-    let syncInterval: NodeJS.Timeout | null = null;
-    
-    const setupPeriodicSync = async () => {
-      // Only setup periodic sync if we're online and have data
-      if (!isOnline || dailyData.length === 0) {
-        return;
-      }
+    if (!isOnline) return;
 
-      console.log('🔄 Setting up periodic cross-device sync...');
-      
-      // Sync every 30 seconds to catch cross-device changes
-      syncInterval = setInterval(async () => {
-        try {
-          const today = format(new Date(), 'yyyy-MM-dd');
-          
-          // Get current deliveries from database
-          const { DatabaseService } = await import('../services/database');
-          const dbDeliveries = await DatabaseService.getDeliveriesByDate(today);
-          
-          // Get current local deliveries
-          const currentTodayData = dailyData.find(d => d.date === today);
-          const localDeliveries = currentTodayData?.deliveries || [];
-          
-          // Check if there are differences
-          const dbIds = new Set(dbDeliveries.map(d => d.id));
-          const localIds = new Set(localDeliveries.map(d => d.id));
-          
-          const hasChanges = dbIds.size !== localIds.size || 
-                           Array.from(dbIds).some(id => !localIds.has(id)) ||
-                           Array.from(localIds).some(id => !dbIds.has(id));
-          
-          if (hasChanges) {
-            console.log('📊 Cross-device changes detected, syncing...');
-            console.log(`Database: ${dbDeliveries.length} deliveries, Local: ${localDeliveries.length} deliveries`);
-            console.log('Database delivery IDs:', Array.from(dbIds));
-            console.log('Local delivery IDs:', Array.from(localIds));
-            
-            // Update today's data with database state
-            const updatedDailyData = dailyData.map(dayData => {
-              if (dayData.date === today) {
-                // Database is the source of truth for deletions
-                // Use database deliveries as the primary source
-                console.log(`🔄 Sync: Database has ${dbDeliveries.length} deliveries, Local has ${localDeliveries.length} deliveries`);
-                
-                // Only add local deliveries that are truly new AND not yet synced to database
-                // Filter out any local deliveries that were recently created (within last 30 seconds)
-                const now = Date.now();
-                const newLocalDeliveries = localDeliveries.filter(local => {
-                  // Only keep local deliveries that don't exist in database
-                  const notInDb = !dbIds.has(local.id);
-                  // And only if they're very recent (just created, not yet synced)
-                  const isRecent = now - parseInt(local.id) < 30000; // 30 seconds
-                  return notInDb && isRecent;
-                });
-                
-                console.log(`🔄 Merging: ${dbDeliveries.length} from DB + ${newLocalDeliveries.length} new local (recent) = ${dbDeliveries.length + newLocalDeliveries.length} total`);
-                console.log(`📋 New local deliveries:`, newLocalDeliveries.map(d => `${d.id}: ${d.customerName || 'Unknown'}`));
-                
-                // Final merged deliveries - database is authoritative, plus only very recent local additions
-                const mergedDeliveries = [...dbDeliveries, ...newLocalDeliveries];
-                const updatedSummary = StorageManager.calculateSummary(mergedDeliveries);
-                
-                // Update local storage to match the merged state
-                const updatedTodayData = {
-                  ...dayData,
-                  deliveries: mergedDeliveries,
-                  summary: updatedSummary
-                };
-                StorageManager.updateDailyData(updatedTodayData);
-                
-                return updatedTodayData;
-              }
-              return dayData;
-            });
-            
-            setDailyData(updatedDailyData);
-            console.log('✅ Cross-device sync completed');
-          } else {
-            console.log('🔄 No cross-device changes detected');
-          }
-        } catch (error) {
-          console.error('❌ Periodic sync failed:', error);
-        }
-      }, 60000); // 60 seconds (reduced frequency to avoid too many syncs)
-    };
-
-    // Start periodic sync after a short delay
-    const timer = setTimeout(() => {
-      setupPeriodicSync();
-    }, 10000); // Wait 10 seconds after initial load
-
-    return () => {
-      if (syncInterval) {
-        console.log('🔄 Cleaning up periodic sync');
-        clearInterval(syncInterval);
-      }
-      clearTimeout(timer);
-    };
-  }, [isOnline, dailyData]);
-
-  // Immediate sync when window gets focus (for better cross-device sync)
-  useEffect(() => {
-    const handleWindowFocus = async () => {
-      if (!isOnline || dailyData.length === 0) return;
-      
+    const refreshInterval = setInterval(async () => {
       try {
-        console.log('🔄 Window focused, checking for cross-device changes...');
-        const today = format(new Date(), 'yyyy-MM-dd');
+        console.log('🔄 Periodic database refresh...');
+        const [freshDailyData, freshStores] = await Promise.all([
+          HybridStorageManager.getDailyData(),
+          HybridStorageManager.getStores()
+        ]);
         
-        // Get current deliveries from database
-        const { DatabaseService } = await import('../services/database');
-        const dbDeliveries = await DatabaseService.getDeliveriesByDate(today);
-        
-        // Get current local deliveries
-        const currentTodayData = dailyData.find(d => d.date === today);
-        const localDeliveries = currentTodayData?.deliveries || [];
-        
-        // Check if there are differences
-        const dbIds = new Set(dbDeliveries.map(d => d.id));
-        const localIds = new Set(localDeliveries.map(d => d.id));
-        
-        const hasChanges = dbIds.size !== localIds.size || 
-                         Array.from(dbIds).some(id => !localIds.has(id)) ||
-                         Array.from(localIds).some(id => !dbIds.has(id));
-        
-        if (hasChanges) {
-          console.log('📊 Focus sync: Cross-device changes detected!');
-          console.log(`Database: ${dbDeliveries.length} deliveries, Local: ${localDeliveries.length} deliveries`);
-          
-          // Update today's data with database state
-          const updatedDailyData = dailyData.map(dayData => {
-            if (dayData.date === today) {
-              // Database is the source of truth for deletions
-              console.log(`🔄 Focus sync: Database has ${dbDeliveries.length} deliveries, Local has ${localDeliveries.length} deliveries`);
-              
-              // Only add local deliveries that are truly new AND very recent
-              const now = Date.now();
-              const newLocalDeliveries = localDeliveries.filter(local => {
-                // Only keep local deliveries that don't exist in database
-                const notInDb = !dbIds.has(local.id);
-                // And only if they're very recent (just created, not yet synced)
-                const isRecent = now - parseInt(local.id) < 30000; // 30 seconds
-                return notInDb && isRecent;
-              });
-              
-              console.log(`🔄 Focus sync merging: ${dbDeliveries.length} from DB + ${newLocalDeliveries.length} new local (recent) = ${dbDeliveries.length + newLocalDeliveries.length} total`);
-              console.log(`📋 Focus sync new local deliveries:`, newLocalDeliveries.map(d => `${d.id}: ${d.customerName || 'Unknown'}`));
-              
-              const mergedDeliveries = [...dbDeliveries, ...newLocalDeliveries];
-              const updatedSummary = StorageManager.calculateSummary(mergedDeliveries);
-              
-              // Update local storage to match the merged state
-              const updatedTodayData = {
-                ...dayData,
-                deliveries: mergedDeliveries,
-                summary: updatedSummary
-              };
-              StorageManager.updateDailyData(updatedTodayData);
-              
-              return updatedTodayData;
-            }
-            return dayData;
-          });
-          
-          setDailyData(updatedDailyData);
-          console.log('✅ Focus sync completed');
-        }
+        setDailyData(freshDailyData);
+        setStores(freshStores);
+        console.log('✅ Periodic refresh completed');
       } catch (error) {
-        console.error('❌ Focus sync failed:', error);
+        console.error('❌ Periodic refresh failed:', error);
+        setIsOnline(false);
+      }
+    }, 60000); // 60 seconds
+
+    return () => clearInterval(refreshInterval);
+  }, [isOnline]);
+
+  // Window focus refresh
+  useEffect(() => {
+    if (!isOnline) return;
+
+    const handleWindowFocus = async () => {
+      try {
+        console.log('👁️ Window focused - refreshing data...');
+        const [freshDailyData, freshStores] = await Promise.all([
+          HybridStorageManager.getDailyData(),
+          HybridStorageManager.getStores()
+        ]);
+        
+        setDailyData(freshDailyData);
+        setStores(freshStores);
+        console.log('✅ Focus refresh completed');
+      } catch (error) {
+        console.error('❌ Focus refresh failed:', error);
+        setIsOnline(false);
       }
     };
 
     window.addEventListener('focus', handleWindowFocus);
     return () => window.removeEventListener('focus', handleWindowFocus);
-  }, [isOnline, dailyData]);
+  }, [isOnline]);
 
   const getTodayData = useCallback((): DailyData => {
-    const today = MobileFix.getTodayString();
-    const todayData = dailyData.find(data => data.date === today);
-    
-    console.log('getTodayData called for date:', today);
-    console.log('Available daily data dates:', dailyData.map(d => d.date));
-    console.log('Today data found:', !!todayData);
+    const today = format(new Date(), 'yyyy-MM-dd');
+    const todayData = dailyData.find(d => d.date === today);
     
     if (!todayData) {
-      console.log('Creating new today data entry');
-      const newData = StorageManager.createEmptyDailyData(new Date());
+      console.log('📅 Creating new today data entry');
+      const newData: DailyData = {
+        date: today,
+        deliveries: [],
+        summary: {
+          totalStores: 0,
+          totalDeliveries: 0,
+          totalDelivered: 0,
+          totalPending: 0,
+          totalBills: 0,
+          totalRevenue: 0,
+          totalPaid: 0,
+          totalOutstanding: 0
+        }
+      };
       setDailyData(prev => [newData, ...prev]);
       return newData;
     }
     
-    console.log('Today data has', todayData.deliveries.length, 'deliveries');
     return todayData;
   }, [dailyData]);
 
   const addStore = useCallback(async (store: Omit<Store, 'id'>) => {
+    if (!isOnline) {
+      throw new Error('Database connection required');
+    }
+
     const newStore: Store = {
       ...store,
       id: Date.now().toString()
     };
     
-    const updatedStores = [...stores, newStore];
-    setStores(updatedStores);
-    
-    // Save using hybrid storage (database + local)
-    await HybridStorageManager.saveStore(newStore);
-    
-    return newStore;
-  }, [stores]);
+    try {
+      await HybridStorageManager.saveStore(newStore);
+      
+      // Refresh stores from database
+      const freshStores = await HybridStorageManager.getStores();
+      setStores(freshStores);
+      
+      return newStore;
+    } catch (error) {
+      console.error('❌ Failed to add store:', error);
+      throw error;
+    }
+  }, [isOnline]);
 
-  const updateStore = useCallback((storeId: string, updates: Partial<Store>) => {
-    const updatedStores = stores.map(store =>
-      store.id === storeId ? { ...store, ...updates } : store
-    );
-    
-    setStores(updatedStores);
-    StorageManager.saveStores(updatedStores);
-  }, [stores]);
+  const updateStore = useCallback(async (storeId: string, updates: Partial<Store>) => {
+    if (!isOnline) {
+      throw new Error('Database connection required');
+    }
 
+    const existingStore = stores.find(s => s.id === storeId);
+    if (!existingStore) {
+      throw new Error('Store not found');
+    }
+
+    const updatedStore = { ...existingStore, ...updates };
+    
+    try {
+      await HybridStorageManager.saveStore(updatedStore);
+      
+      // Refresh stores from database
+      const freshStores = await HybridStorageManager.getStores();
+      setStores(freshStores);
+    } catch (error) {
+      console.error('❌ Failed to update store:', error);
+      throw error;
+    }
+  }, [stores, isOnline]);
 
   const addDelivery = useCallback(async (delivery: Omit<Delivery, 'id'>) => {
+    if (!isOnline) {
+      throw new Error('Database connection required');
+    }
+
     const newDelivery: Delivery = {
       ...delivery,
       id: Date.now().toString()
     };
 
-    console.log('Adding delivery:', newDelivery);
-
-    const today = MobileFix.getTodayString();
-    let updatedDailyData = dailyData.map(data => {
-      if (data.date === today) {
-        const updatedDeliveries = [...data.deliveries, newDelivery];
-        const updatedSummary = StorageManager.calculateSummary(updatedDeliveries);
-        
-        console.log('Updated today data with', updatedDeliveries.length, 'deliveries');
-        return {
-          ...data,
-          deliveries: updatedDeliveries,
-          summary: updatedSummary
-        };
-      }
-      return data;
-    });
-
-    // If today's data doesn't exist, create it
-    const todayExists = updatedDailyData.some(data => data.date === today);
-    if (!todayExists) {
-      console.log('Creating today data entry for new delivery');
-      const newTodayData = StorageManager.createEmptyDailyData(new Date());
-      newTodayData.deliveries = [newDelivery];
-      newTodayData.summary = StorageManager.calculateSummary([newDelivery]);
-      updatedDailyData = [newTodayData, ...updatedDailyData];
+    try {
+      await HybridStorageManager.saveDelivery(newDelivery);
+      
+      // Refresh data from database
+      const freshDailyData = await HybridStorageManager.getDailyData();
+      setDailyData(freshDailyData);
+      
+      return newDelivery;
+    } catch (error) {
+      console.error('❌ Failed to add delivery:', error);
+      throw error;
     }
-
-    setDailyData(updatedDailyData);
-    
-    const todayData = updatedDailyData.find(data => data.date === today);
-    if (todayData) {
-      StorageManager.updateDailyData(todayData);
-      console.log('Saved today data to local storage');
-    }
-
-    // Save using hybrid storage (database + local)
-    await HybridStorageManager.saveDelivery(newDelivery);
-    console.log('Saved delivery to hybrid storage');
-
-    return newDelivery;
-  }, [dailyData]);
+  }, [isOnline]);
 
   const updateDelivery = useCallback(async (deliveryId: string, updates: Partial<Delivery>) => {
+    if (!isOnline) {
+      throw new Error('Database connection required');
+    }
+
     const today = format(new Date(), 'yyyy-MM-dd');
-    
-    // First check if the delivery exists locally
     const todayData = dailyData.find(data => data.date === today);
     const existingDelivery = todayData?.deliveries.find(d => d.id === deliveryId);
     
     if (!existingDelivery) {
       console.warn(`⚠️ Attempted to update non-existent delivery: ${deliveryId}`);
-      console.log('🔄 Triggering sync to refresh data...');
       
-      // Delivery doesn't exist locally - trigger a sync to refresh data
+      // Refresh data and check again
       try {
-        const { DatabaseService } = await import('../services/database');
-        const dbDeliveries = await DatabaseService.getDeliveriesByDate(today);
-        const dbDelivery = dbDeliveries.find(d => d.id === deliveryId);
+        const freshDailyData = await HybridStorageManager.getDailyData();
+        setDailyData(freshDailyData);
         
-        if (!dbDelivery) {
-          console.log('❌ Delivery not found in database either - it may have been deleted');
-          window.alert('This order may have been deleted. Refreshing data...');
-          // Force a full refresh to clean up stale UI references
-          window.location.reload();
+        const freshTodayData = freshDailyData.find(data => data.date === today);
+        const delivery = freshTodayData?.deliveries.find(d => d.id === deliveryId);
+        
+        if (!delivery) {
+          alert('This order may have been deleted. Refreshing data...');
           return;
+        }
+        
+        // Use the refreshed delivery data
+        const updatedDelivery = { ...delivery, ...updates };
+        
+        try {
+          await HybridStorageManager.updateDelivery(updatedDelivery);
+          const updatedDailyData = await HybridStorageManager.getDailyData();
+          setDailyData(updatedDailyData);
+          return;
+        } catch (updateError) {
+          console.error('❌ Failed to update delivery after refresh:', updateError);
+          throw updateError;
         }
       } catch (error) {
         console.error('Failed to verify delivery existence:', error);
+        return;
       }
-      return;
     }
 
-    console.log(`📝 Updating delivery ${deliveryId} with:`, updates);
+    const updatedDelivery = { ...existingDelivery, ...updates };
 
-    const updatedDailyData = dailyData.map(data => {
-      if (data.date === today) {
-        const updatedDeliveries = data.deliveries.map(delivery =>
-          delivery.id === deliveryId ? { ...delivery, ...updates } : delivery
-        );
-        const updatedSummary = StorageManager.calculateSummary(updatedDeliveries);
-        
-        return {
-          ...data,
-          deliveries: updatedDeliveries,
-          summary: updatedSummary
-        };
-      }
-      return data;
-    });
-
-    setDailyData(updatedDailyData);
-    
-    const newTodayData = updatedDailyData.find(data => data.date === today);
-    if (newTodayData) {
-      StorageManager.updateDailyData(newTodayData);
-    }
-
-    // Update in database using HybridStorageManager
     try {
-      const updatedDelivery = newTodayData?.deliveries.find(d => d.id === deliveryId);
-      if (updatedDelivery) {
-        await HybridStorageManager.saveDelivery(updatedDelivery);
-        console.log('✅ Delivery updated in both local storage and database');
-      }
+      await HybridStorageManager.updateDelivery(updatedDelivery);
+      
+      // Refresh data from database
+      const freshDailyData = await HybridStorageManager.getDailyData();
+      setDailyData(freshDailyData);
     } catch (error) {
-      console.error('❌ Failed to update delivery in database:', error);
+      console.error('❌ Failed to update delivery:', error);
+      throw error;
     }
-  }, [dailyData]);
+  }, [dailyData, isOnline]);
 
   const deleteDelivery = useCallback(async (deliveryId: string) => {
-    const today = format(new Date(), 'yyyy-MM-dd');
+    if (!isOnline) {
+      throw new Error('Database connection required');
+    }
     
     console.log(`🗑️ Deleting delivery ${deliveryId}...`);
     
-    // Update local state immediately for responsive UI
-    const updatedDailyData = dailyData.map(data => {
-      if (data.date === today) {
-        const updatedDeliveries = data.deliveries.filter(delivery => delivery.id !== deliveryId);
-        const updatedSummary = StorageManager.calculateSummary(updatedDeliveries);
-        
-        return {
-          ...data,
-          deliveries: updatedDeliveries,
-          summary: updatedSummary
-        };
-      }
-      return data;
-    });
-
-    setDailyData(updatedDailyData);
-    
-    const todayData = updatedDailyData.find(data => data.date === today);
-    if (todayData) {
-      StorageManager.updateDailyData(todayData);
-    }
-
-    // Delete from database using HybridStorageManager
     try {
       await HybridStorageManager.deleteDelivery(deliveryId);
-      console.log('✅ Delivery deleted from both local storage and database');
+      
+      // Refresh data from database
+      const freshDailyData = await HybridStorageManager.getDailyData();
+      setDailyData(freshDailyData);
+      
+      console.log('✅ Delivery deleted and data refreshed');
     } catch (error) {
-      console.error('❌ Failed to delete delivery from database:', error);
-      // If database deletion failed, show error but keep local deletion
-      window.alert('Warning: Failed to sync deletion to database. The order has been removed locally.');
+      console.error('❌ Failed to delete delivery:', error);
+      alert('Failed to delete delivery. Please try again.');
+      throw error;
     }
-  }, [dailyData]);
+  }, [isOnline]);
 
   const getDataForView = useCallback(() => {
     switch (viewMode) {
       case 'weekly':
-        return StorageManager.getWeekData();
+        // Get last 7 days
+        return dailyData.slice(0, 7);
       case 'monthly':
-        return dailyData.slice(0, 30); // Last 30 days
+        // Get last 30 days
+        return dailyData.slice(0, 30);
       default:
         return [getTodayData()];
     }
   }, [viewMode, dailyData, getTodayData]);
 
   const refreshData = useCallback(async () => {
-    console.log('🔄 Force refreshing data from database...');
+    if (!isOnline) {
+      throw new Error('Database connection required');
+    }
+
     try {
-      const syncedData = await DataSyncManager.forceSyncFromDatabase();
-      const finalDailyData = DataSyncManager.ensureTodayData(syncedData.dailyData);
+      console.log('🔄 Manual data refresh...');
+      const [freshDailyData, freshStores] = await Promise.all([
+        HybridStorageManager.getDailyData(),
+        HybridStorageManager.getStores()
+      ]);
       
-      setDailyData(finalDailyData);
-      setStores(syncedData.stores);
-      
-      console.log('✅ Data refreshed successfully');
+      setDailyData(freshDailyData);
+      setStores(freshStores);
+      console.log('✅ Manual refresh completed');
     } catch (error) {
-      console.error('❌ Error refreshing data:', error);
+      console.error('❌ Manual refresh failed:', error);
       throw error;
     }
-  }, []);
+  }, [isOnline]);
 
   const clearAndResync = useCallback(async () => {
-    console.log('🗑️ Clearing all data and resyncing...');
+    if (!isOnline) {
+      throw new Error('Database connection required');
+    }
+
     try {
-      const syncedData = await DataSyncManager.clearAndResync();
-      const finalDailyData = DataSyncManager.ensureTodayData(syncedData.dailyData);
+      console.log('🔄 Clear and resync...');
       
-      setDailyData(finalDailyData);
-      setStores(syncedData.stores);
+      // Simply refresh from database (no local storage to clear)
+      const [freshDailyData, freshStores] = await Promise.all([
+        HybridStorageManager.getDailyData(),
+        HybridStorageManager.getStores()
+      ]);
       
+      setDailyData(freshDailyData);
+      setStores(freshStores);
       console.log('✅ Clear and resync completed');
     } catch (error) {
       console.error('❌ Clear and resync failed:', error);
       throw error;
     }
-  }, []);
+  }, [isOnline]);
 
   return {
     dailyData,
@@ -573,6 +370,7 @@ export const useDeliveryData = () => {
     currentDate,
     viewMode,
     loading,
+    isOnline,
     setViewMode,
     getTodayData,
     getDataForView,

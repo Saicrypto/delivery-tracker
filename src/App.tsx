@@ -15,6 +15,7 @@ import './App.css';
 
 function App() {
   const {
+    dailyData,
     stores,
     currentDate,
     viewMode,
@@ -191,6 +192,8 @@ function App() {
             <DataManager
               onClose={() => setShowDataManager(false)}
               onDataChange={() => window.location.reload()}
+              dailyData={dailyData}
+              stores={stores}
             />
           )}
 
@@ -217,6 +220,8 @@ function App() {
             onOpenDatabaseInspector={() => setShowDatabaseInspector(true)}
             onRefreshData={refreshData}
             onClearAndResync={clearAndResync}
+            dailyData={dailyData}
+            stores={stores}
           />
     </div>
   );
